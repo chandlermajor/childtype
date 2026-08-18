@@ -1,0 +1,368 @@
+/**
+ * ChildType Popup Styles
+ * 使用 CSS 变量支持亮/暗主题切换
+ */
+
+/* ===== CSS Variables (Light Theme) ===== */
+:root,
+:root[data-theme="light"] {
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F5F5F5;
+  --bg-tertiary: #EEEEEE;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --accent: #6C5CE7;
+  --accent-light: #A29BFE;
+  --success: #00B894;
+  --warning: #FDCB6E;
+  --error: #D63031;
+  --border: #E0E0E0;
+  --shadow: rgba(0, 0, 0, 0.1);
+  --btn-hover: #F0F0F0;
+  --mode-active-bg: #6C5CE7;
+  --mode-active-text: #FFFFFF;
+  --mode-inactive-bg: #F5F5F5;
+  --mode-inactive-text: #666666;
+  --progress-bg: #E0E0E0;
+  --progress-fill: linear-gradient(90deg, #6C5CE7, #A29BFE);
+  --achievement-unlocked: #FFD700;
+  --achievement-locked: #CCCCCC;
+}
+
+/* ===== Dark Theme ===== */
+:root[data-theme="dark"] {
+  --bg-primary: #1E1E2E;
+  --bg-secondary: #2D2D3D;
+  --bg-tertiary: #3D3D4D;
+  --text-primary: #E0E0E0;
+  --text-secondary: #B0B0B0;
+  --text-muted: #808080;
+  --accent: #A29BFE;
+  --accent-light: #6C5CE7;
+  --success: #55E6C1;
+  --warning: #FFEAA7;
+  --error: #FF7675;
+  --border: #404050;
+  --shadow: rgba(0, 0, 0, 0.3);
+  --btn-hover: #3D3D4D;
+  --mode-active-bg: #6C5CE7;
+  --mode-active-text: #FFFFFF;
+  --mode-inactive-bg: #2D2D3D;
+  --mode-inactive-text: #B0B0B0;
+  --progress-bg: #404050;
+  --progress-fill: linear-gradient(90deg, #6C5CE7, #A29BFE);
+  --achievement-unlocked: #FFD700;
+  --achievement-locked: #505060;
+}
+
+/* ===== Reset & Base ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 320px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  line-height: 1.4;
+}
+
+/* ===== Header ===== */
+.popup__header {
+  padding: 16px 16px 12px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.popup__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.popup__title-icon {
+  font-size: 22px;
+}
+
+.popup__subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  letter-spacing: 1px;
+}
+
+/* ===== Sections ===== */
+.popup__section {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.popup__section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+/* ===== Mode Grid ===== */
+.popup__mode-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.popup__mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--mode-inactive-bg);
+  color: var(--mode-inactive-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.popup__mode-btn:hover {
+  background: var(--btn-hover);
+  border-color: var(--accent-light);
+}
+
+.popup__mode-btn--active {
+  background: var(--mode-active-bg);
+  color: var(--mode-active-text);
+  border-color: var(--accent);
+}
+
+.popup__mode-icon {
+  font-size: 20px;
+}
+
+/* ===== Stats Grid ===== */
+.popup__stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.popup__stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+}
+
+.popup__stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+.popup__stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ===== Level ===== */
+.popup__level-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.popup__level-badge {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.popup__level-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.popup__level-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.popup__level-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.popup__progress-bar {
+  height: 8px;
+  background: var(--progress-bg);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.popup__progress-fill {
+  height: 100%;
+  background: var(--progress-fill);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.popup__progress-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ===== Action Buttons ===== */
+.popup__actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.popup__action-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.popup__action-btn:hover {
+  background: var(--btn-hover);
+  border-color: var(--accent);
+}
+
+.popup__action-btn--small {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.popup__action-btn--link {
+  color: var(--accent);
+}
+
+/* ===== Settings Panel ===== */
+.popup__setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--bg-tertiary);
+}
+
+.popup__setting-row label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.popup__setting-row select,
+.popup__setting-row input {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.popup__setting-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.popup__settings,
+.popup__achievements {
+  /* visible when not hidden */
+}
+
+/* ===== Achievements ===== */
+.popup__achievement-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.popup__achievement-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 2px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  text-align: center;
+}
+
+.popup__achievement-item--unlocked {
+  border: 1px solid var(--achievement-unlocked);
+}
+
+.popup__achievement-item--locked {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.popup__achievement-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.popup__achievement-name {
+  font-size: 8px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1.1;
+}
+
+#achievement-progress {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* ===== Footer ===== */
+.popup__footer {
+  padding: 8px 16px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}

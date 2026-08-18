@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChildType</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="popup__header">
+    <h1 class="popup__title">
+      <span class="popup__title-icon">⌨️</span>
+      ChildType
+    </h1>
+    <p class="popup__subtitle">打字练习 · 指法学习</p>
+  </header>
+
+  <!-- Mode Selection -->
+  <section class="popup__section popup__modes">
+    <h2 class="popup__section-title">练习模式</h2>
+    <div class="popup__mode-grid">
+      <button class="popup__mode-btn popup__mode-btn--active" data-mode="letters" title="字母练习">
+        <span class="popup__mode-icon">🔤</span>
+        <span class="popup__mode-label">字母</span>
+      </button>
+      <button class="popup__mode-btn" data-mode="words" title="单词练习">
+        <span class="popup__mode-icon">📖</span>
+        <span class="popup__mode-label">单词</span>
+      </button>
+      <button class="popup__mode-btn" data-mode="sentences" title="句子练习">
+        <span class="popup__mode-icon">📋</span>
+        <span class="popup__mode-label">句子</span>
+      </button>
+      <button class="popup__mode-btn" data-mode="free" title="自由打字">
+        <span class="popup__mode-icon">✍️</span>
+        <span class="popup__mode-label">自由</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Quick Stats -->
+  <section class="popup__section popup__stats">
+    <h2 class="popup__section-title">快速统计</h2>
+    <div class="popup__stats-grid">
+      <div class="popup__stat-item">
+        <span class="popup__stat-value" id="stat-wpm">--</span>
+        <span class="popup__stat-label">WPM</span>
+      </div>
+      <div class="popup__stat-item">
+        <span class="popup__stat-value" id="stat-accuracy">--%</span>
+        <span class="popup__stat-label">准确率</span>
+      </div>
+      <div class="popup__stat-item">
+        <span class="popup__stat-value" id="stat-streak">0</span>
+        <span class="popup__stat-label">连击</span>
+      </div>
+      <div class="popup__stat-item">
+        <span class="popup__stat-value" id="stat-time">0m</span>
+        <span class="popup__stat-label">时长</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Level Progress -->
+  <section class="popup__section popup__level">
+    <h2 class="popup__section-title">进度</h2>
+    <div class="popup__level-info">
+      <div class="popup__level-badge" id="level-badge">🌱</div>
+      <div class="popup__level-text">
+        <span class="popup__level-name" id="level-name">打字新手</span>
+        <span class="popup__level-subtitle" id="level-subtitle">Lv.1</span>
+      </div>
+    </div>
+    <div class="popup__progress-bar">
+      <div class="popup__progress-fill" id="progress-fill" style="width: 0%"></div>
+    </div>
+    <div class="popup__progress-text">
+      <span id="progress-current">0</span> / <span id="progress-next">100</span> EXP
+    </div>
+  </section>
+
+  <!-- Actions -->
+  <section class="popup__section popup__actions">
+    <button class="popup__action-btn" id="btn-settings">⚙️ 设置</button>
+    <button class="popup__action-btn" id="btn-achievements">🏆 成就</button>
+    <button class="popup__action-btn popup__action-btn--link" id="btn-privacy">🔒 隐私政策</button>
+  </section>
+
+  <footer class="popup__footer">
+    <span>ChildType v0.0.1</span>
+  </footer>
+
+  <!-- Settings Panel (hidden by default) -->
+  <section class="popup__section popup__settings" id="settings-panel" hidden>
+    <h2 class="popup__section-title">设置</h2>
+    <div class="popup__setting-row">
+      <label>主题</label>
+      <select id="setting-theme">
+        <option value="light">浅色</option>
+        <option value="dark">深色</option>
+      </select>
+    </div>
+    <div class="popup__setting-row">
+      <label>字体大小</label>
+      <select id="setting-font-size"></select>
+    </div>
+    <div class="popup__setting-row">
+      <label>音效</label>
+      <input type="checkbox" id="setting-sound" checked>
+    </div>
+    <div class="popup__setting-row">
+      <label>难度</label>
+      <select id="setting-difficulty">
+        <option value="easy">简单</option>
+        <option value="normal" selected>普通</option>
+        <option value="hard">困难</option>
+      </select>
+    </div>
+    <button class="popup__action-btn popup__action-btn--small" id="btn-reset-settings">重置设置</button>
+    <button class="popup__action-btn popup__action-btn--small" id="btn-close-settings">关闭</button>
+  </section>
+
+  <!-- Achievements Panel (hidden by default) -->
+  <section class="popup__section popup__achievements" id="achievements-panel" hidden>
+    <h2 class="popup__section-title">成就 <span id="achievement-progress">0/22</span></h2>
+    <div class="popup__achievement-grid" id="achievement-grid">
+      <!-- Dynamically populated -->
+    </div>
+    <button class="popup__action-btn popup__action-btn--small" id="btn-close-achievements">关闭</button>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>
