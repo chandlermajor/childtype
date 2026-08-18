@@ -59,8 +59,123 @@ const notificationText = document.getElementById('notification-text');
 const keyboardContainer = document.getElementById('keyboard-container');
 const allKeys = document.querySelectorAll('.overlay__key');
 
+// ===== Create overlay container =====
+function createOverlayContainer() {
+  const existing = document.getElementById('childtype-overlay');
+  if (existing) return existing;
+
+  const container = document.createElement('div');
+  container.id = 'childtype-overlay';
+  container.innerHTML = `
+    <div class="overlay__topbar">
+      <div class="overlay__mode-label" id="overlay-mode-label">字母练习</div>
+      <div class="overlay__stats">
+        <div class="overlay__stat">
+          <span class="overlay__stat-value" id="overlay-wpm">0</span>
+          <span class="overlay__stat-unit">WPM</span>
+        </div>
+        <div class="overlay__stat">
+          <span class="overlay__stat-value" id="overlay-accuracy">--</span>
+          <span class="overlay__stat-unit">%</span>
+        </div>
+        <div class="overlay__stat">
+          <span class="overlay__stat-value" id="overlay-streak">0</span>
+          <span class="overlay__stat-unit">连击</span>
+        </div>
+        <div class="overlay__stat">
+          <span class="overlay__stat-value" id="overlay-timer">0:00</span>
+          <span class="overlay__stat-unit">时长</span>
+        </div>
+      </div>
+      <div class="overlay__controls">
+        <button class="overlay__ctrl-btn" id="btn-pause" title="暂停">⏸</button>
+        <button class="overlay__ctrl-btn" id="btn-close" title="关闭 (Esc)">✕</button>
+      </div>
+    </div>
+    <div class="overlay__main">
+      <div class="overlay__target-area" id="target-area">
+        <div class="overlay__target-letter" id="target-letter">按任意键开始</div>
+        <div class="overlay__target-hint" id="target-hint">点击扩展图标选择练习模式</div>
+      </div>
+    </div>
+    <div class="overlay__keyboard" id="keyboard-container">
+      <div class="overlay__keyboard-row" id="row-0">
+        <div class="overlay__key" data-key="`" data-finger="left-pinky">`</div>
+        <div class="overlay__key" data-key="1" data-finger="left-pinky">1</div>
+        <div class="overlay__key" data-key="2" data-finger="left-ring">2</div>
+        <div class="overlay__key" data-key="3" data-finger="left-middle">3</div>
+        <div class="overlay__key" data-key="4" data-finger="left-index">4</div>
+        <div class="overlay__key" data-key="5" data-finger="left-index">5</div>
+        <div class="overlay__key" data-key="6" data-finger="right-index">6</div>
+        <div class="overlay__key" data-key="7" data-finger="right-index">7</div>
+        <div class="overlay__key" data-key="8" data-finger="right-middle">8</div>
+        <div class="overlay__key" data-key="9" data-finger="right-ring">9</div>
+        <div class="overlay__key" data-key="0" data-finger="right-pinky">0</div>
+        <div class="overlay__key" data-key="-" data-finger="right-pinky">-</div>
+        <div class="overlay__key" data-key="=" data-finger="right-pinky">=</div>
+        <div class="overlay__key overlay__key--backspace" data-key="Backspace" data-finger="right-pinky">⌫</div>
+      </div>
+      <div class="overlay__keyboard-row" id="row-1">
+        <div class="overlay__key overlay__key--indent" data-key="q" data-finger="left-pinky">Q</div>
+        <div class="overlay__key" data-key="w" data-finger="left-ring">W</div>
+        <div class="overlay__key" data-key="e" data-finger="left-middle">E</div>
+        <div class="overlay__key" data-key="r" data-finger="left-index">R</div>
+        <div class="overlay__key" data-key="t" data-finger="left-index">T</div>
+        <div class="overlay__key" data-key="y" data-finger="right-index">Y</div>
+        <div class="overlay__key" data-key="u" data-finger="right-index">U</div>
+        <div class="overlay__key" data-key="i" data-finger="right-middle">I</div>
+        <div class="overlay__key" data-key="o" data-finger="right-ring">O</div>
+        <div class="overlay__key" data-key="p" data-finger="right-pinky">P</div>
+        <div class="overlay__key" data-key="[" data-finger="right-pinky">[</div>
+        <div class="overlay__key" data-key="]" data-finger="right-pinky">]</div>
+        <div class="overlay__key" data-key="\\" data-finger="right-pinky">\</div>
+      </div>
+      <div class="overlay__keyboard-row" id="row-2">
+        <div class="overlay__key overlay__key--home overlay__key--indent" data-key="a" data-finger="left-pinky" title="基准键">A</div>
+        <div class="overlay__key overlay__key--home" data-key="s" data-finger="left-ring" title="基准键">S</div>
+        <div class="overlay__key overlay__key--home" data-key="d" data-finger="left-middle" title="基准键">D</div>
+        <div class="overlay__key overlay__key--home" data-key="f" data-finger="left-index" title="基准键 · 凸起">F</div>
+        <div class="overlay__key overlay__key--home" data-key="g" data-finger="left-index" title="基准键">G</div>
+        <div class="overlay__key overlay__key--home" data-key="h" data-finger="right-index" title="基准键">H</div>
+        <div class="overlay__key overlay__key--home" data-key="j" data-finger="right-index" title="基准键 · 凸起">J</div>
+        <div class="overlay__key overlay__key--home" data-key="k" data-finger="right-middle" title="基准键">K</div>
+        <div class="overlay__key overlay__key--home" data-key="l" data-finger="right-ring" title="基准键">L</div>
+        <div class="overlay__key overlay__key--home" data-key=";" data-finger="right-pinky" title="基准键">;</div>
+        <div class="overlay__key" data-key="'" data-finger="right-pinky">'</div>
+        <div class="overlay__key overlay__key--enter" data-key="Enter" data-finger="right-pinky">Enter</div>
+      </div>
+      <div class="overlay__keyboard-row" id="row-3">
+        <div class="overlay__key overlay__key--shift overlay__key--indent-wide" data-key="Shift" data-finger="left-pinky">Shift</div>
+        <div class="overlay__key" data-key="z" data-finger="left-pinky">Z</div>
+        <div class="overlay__key" data-key="x" data-finger="left-ring">X</div>
+        <div class="overlay__key" data-key="c" data-finger="left-middle">C</div>
+        <div class="overlay__key" data-key="v" data-finger="left-index">V</div>
+        <div class="overlay__key" data-key="b" data-finger="left-index">B</div>
+        <div class="overlay__key" data-key="n" data-finger="right-index">N</div>
+        <div class="overlay__key" data-key="m" data-finger="right-index">M</div>
+        <div class="overlay__key" data-key="," data-finger="right-middle">,</div>
+        <div class="overlay__key" data-key="." data-finger="right-ring">.</div>
+        <div class="overlay__key" data-key="/" data-finger="right-pinky">/</div>
+        <div class="overlay__key overlay__key--shift" data-key="Shift" data-finger="right-pinky">Shift</div>
+      </div>
+      <div class="overlay__keyboard-row" id="row-4">
+        <div class="overlay__key overlay__key--space" data-key=" " data-finger="thumb">Space</div>
+      </div>
+    </div>
+    <div class="overlay__notification" id="notification" hidden>
+      <span class="overlay__notification-icon" id="notification-icon">🎉</span>
+      <span class="overlay__notification-text" id="notification-text">升级!</span>
+    </div>
+  `;
+
+  document.body.appendChild(container);
+  return container;
+}
+
 // ===== Initialize =====
 function init() {
+  createOverlayContainer();
+
   // 监听来自 Service Worker 的消息
   chrome.runtime.onMessage.addListener(handleMessage);
 

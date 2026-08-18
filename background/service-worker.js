@@ -96,6 +96,7 @@ async function handleMessage(message, sender) {
     case 'startOverlay': {
       const { mode, difficulty } = message;
       currentOverlayState = { active: true, tabId: sender.tab?.id, mode, difficulty };
+      await injectOverlay(sender.tab?.id);
       await broadcastToOverlay({ type: 'START_SESSION', data: { mode, difficulty } });
       return { success: true };
     }
@@ -187,6 +188,21 @@ async function broadcastToOverlay(payload) {
     }
   } catch (error) {
     console.warn('[ChildType] Failed to broadcast to overlay:', error);
+  }
+}
+
+/**
+ * 向指定标签注入 overlay（Content Script）
+ * @param {number} tabId - 目标标签页 ID
+ */
+async function injectOverlay(tabId) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['overlay/overlay.js']
+    });
+  } catch (error) {
+    console.warn('[ChildType] Failed to inject overlay:', error);
   }
 }
 

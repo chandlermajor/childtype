@@ -48,6 +48,14 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self';"
   },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["overlay/overlay.js"],
+      "css": ["overlay/overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
   "web_accessible_resources": [
     {
       "resources": ["overlay/overlay.html", "overlay/overlay.css", "overlay/overlay.js"],
