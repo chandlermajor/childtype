@@ -78,6 +78,11 @@ export class TypingArea {
         return;
       }
 
+      if (key === ' ') {
+        this.handleSpace();
+        return;
+      }
+
       if (key.length !== 1) return;
 
       this.handleKeyPress(key);
@@ -130,6 +135,11 @@ export class TypingArea {
     this.currentIndex--;
     this.chars[this.currentIndex].classList.remove('correct', 'wrong');
     this.chars[this.currentIndex].classList.add('current');
+  }
+
+  /** 处理空格键 */
+  private handleSpace(): void {
+    this.handleKeyPress(' ');
   }
 
   /** 重置 */
