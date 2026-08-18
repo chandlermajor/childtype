@@ -20,6 +20,7 @@ export function calculateAccuracy(correct: number, wrong: number): number {
 /** 计算练习获得的星星（1-3） */
 export function calculateStars(wpm: number, accuracy: number): number {
   if (accuracy < 60) return 1;
+  if (accuracy < 80) return 1;
   if (accuracy >= 90 && wpm >= 30) return 2;
   if (accuracy >= 95 && wpm >= 50) return 3;
   return 2;

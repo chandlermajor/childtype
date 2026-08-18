@@ -23,6 +23,11 @@ let currentText: string = '';
 let typingArea: TypingArea | null = null;
 let keyboard: VirtualKeyboard | null = null;
 
+// ==================== 计时器变量 ====================
+let timedInterval: number | null = null;
+let timedWpmInterval: number | null = null;
+let currentTimedSeconds: number = 0;
+
 // ==================== 初始化 ====================
 async function init(): Promise<void> {
   currentProgress = await progressStore.get();
@@ -52,9 +57,10 @@ function initNav(): void {
         section.classList.add('active');
       }
 
-      currentMode = btnId.replace('btn-', '').replace('settings', 'free');
       if (btnId === 'btn-settings') {
         currentMode = 'settings';
+      } else {
+        currentMode = btnId.replace('btn-', '');
       }
     });
   });
@@ -101,10 +107,11 @@ function initLessonSection(): void {
     hintEl.textContent = '选择 Level 开始练习';
   }
 
-  renderLessonsForLevel(1, selector);
+  // 不自动开始第一课，等待用户选择
 }
 
 function renderLessonsForLevel(level: number, selector: HTMLElement): void {
+  console.log('[App] renderLessonsForLevel 被调用, level:', level);
   const display = document.getElementById('typing-display');
   const keyboardEl = document.getElementById('keyboard-container');
 
@@ -114,6 +121,7 @@ function renderLessonsForLevel(level: number, selector: HTMLElement): void {
   });
 
   const lessons = getLessonsByLevel(level);
+  console.log('[App] Level', level, '共有', lessons.length, '课');
   selector.innerHTML = '';
 
   // 课程列表
@@ -150,33 +158,32 @@ function renderLessonsForLevel(level: number, selector: HTMLElement): void {
   if (hintEl && lessons.length > 0) {
     hintEl.textContent = lessons[0].description || '开始练习';
   }
-
-  if (lessons.length > 0) {
-    startLesson(lessons[0]);
-  }
 }
 
 function startLesson(lesson: any): void {
   currentLesson = lesson;
   currentText = lesson.text;
 
-  // 初始化打字区域
-  if (typingArea) {
-    typingArea.reset(lesson.text);
-  } else {
-    const display = document.getElementById('typing-display')!;
-    typingArea = new TypingArea({
-      containerId: 'typing-display',
-      text: lesson.text,
-      onResult: (state: TypingState) => handleResult(state, lesson),
-      onKeyPress: (key: string) => handleKeyVisual(key),
-    });
-  }
-
-  // 初始化键盘（传入当前课程手指范围）
   if (keyboard) {
     keyboard.destroy();
+    keyboard = null;
   }
+
+  // 重新创建打字区域（避免旧状态污染）
+  if (typingArea) {
+    typingArea.destroy();
+    typingArea = null;
+  }
+
+  const display = document.getElementById('typing-display')!;
+  typingArea = new TypingArea({
+    containerId: 'typing-display',
+    text: lesson.text,
+    onResult: (state: TypingState) => handleResult(state, lesson),
+    onKeyPress: (key: string) => handleKeyVisual(key),
+  });
+
+  // 初始化键盘（传入当前课程手指范围）
   keyboard = new VirtualKeyboard({
     containerId: 'keyboard-container',
     onKeyPress: (key: string) => handleKeyVisual(key),
@@ -186,12 +193,7 @@ function startLesson(lesson: any): void {
 
 function handleKeyVisual(key: string): void {
   // 按键弹跳动画由 keyboard 组件处理
-  if (typingArea && currentLesson) {
-    const currentIndex = typingArea.getCurrentIndex();
-    if (currentLesson && keyboard) {
-      updateFlashKey(currentLesson.text, currentIndex);
-    }
-  }
+  console.log('[App] handleKeyVisual 被调用，按键:', key);
 }
 
 function handleResult(state: TypingState, lesson: any): void {
@@ -218,14 +220,29 @@ function handleResult(state: TypingState, lesson: any): void {
   progressStore.completeLesson(lesson.id);
 }
 
-// 闪烁提示当前需要按的键
-function updateFlashKey(text: string, currentIndex: number): void {
-  if (!keyboard || currentIndex >= text.length) return;
-  const currentChar = text[currentIndex];
-  keyboard.flashKey(currentChar);
+/** 处理自由练习结果（不记录到 lessonsCompleted，因为 'free' 不是有效课程 ID） */
+function handleFreePracticeResult(state: TypingState, text: string): void {
+  const duration = (state.endTime - state.startTime) / 1000;
+  const wpm = calculateWPM(state.correctCount, duration);
+  const accuracy = calculateAccuracy(state.correctCount, state.wrongCount);
+  const stars = calculateStars(wpm, accuracy);
+
+  const result: PracticeResult = {
+    mode: 'free',
+    wpm,
+    accuracy,
+    duration,
+    stars,
+    date: new Date().toISOString(),
+  };
+
+  progressStore.saveResult(result).then(() => {
+    showResultModal(wpm, accuracy, stars, duration);
+  });
 }
 
 function showResultModal(wpm: number, accuracy: number, stars: number, duration: number): void {
+  console.log('[App] 结果显示弹窗', { wpm, accuracy, stars, duration });
   const display = document.getElementById('typing-display');
   if (!display) return;
 
@@ -267,6 +284,7 @@ function showResultModal(wpm: number, accuracy: number, stars: number, duration:
   const retryBtn = document.getElementById('retry-btn');
   if (retryBtn) {
     retryBtn.addEventListener('click', () => {
+      console.log('[App] 用户点击"再来一次"，重新加载当前课程');
       // 重新加载当前课程
       if (currentLesson) {
         startLesson(currentLesson);
@@ -317,7 +335,7 @@ function startFreePractice(text: string): void {
     typingArea = new TypingArea({
       containerId: 'typing-display-free',
       text: text,
-      onResult: (state: TypingState) => handleResult(state, { id: 'free', text }),
+      onResult: (state: TypingState) => handleFreePracticeResult(state, text),
     });
   }
 
@@ -359,6 +377,7 @@ function initTimedSection(): void {
 }
 
 function startTimedChallenge(seconds: number): void {
+  currentTimedSeconds = seconds;
   const randomIndex = Math.floor(Math.random() * TIMED_TEXTS.length);
   currentText = TIMED_TEXTS[randomIndex];
 
@@ -432,12 +451,20 @@ function startTimedChallenge(seconds: number): void {
     if (remaining <= 0) {
       if (timedInterval) clearInterval(timedInterval);
       timedInterval = null;
+      // 倒计时结束，触发结果
+      const stats = typingArea?.getCurrentStats() ?? { wpm: 0, accuracy: 0, duration: seconds, correctCount: 0, wrongCount: 0 };
+      const state: TypingState = {
+        currentIndex: typingArea?.getCurrentIndex() ?? 0,
+        correctCount: stats.correctCount,
+        wrongCount: stats.wrongCount,
+        startTime: Date.now() - Math.round(stats.duration * 1000),
+        endTime: Date.now(),
+        isComplete: true,
+      };
+      handleTimedResult(state, seconds);
     }
   }, 1000);
 }
-
-let timedInterval: number | null = null;
-let timedWpmInterval: number | null = null;
 
 function handleTimedResult(state: TypingState, limit: number): void {
   if (timedInterval) {
@@ -496,9 +523,9 @@ function showTimedResultModal(wpm: number, accuracy: number, stars: number, dura
   const retryBtn = document.getElementById('retry-btn');
   if (retryBtn) {
     retryBtn.addEventListener('click', () => {
-      // 重新加载当前课程
-      if (currentLesson) {
-        startLesson(currentLesson);
+      // 计时挑战重试：重新开始计时挑战
+      if (currentTimedSeconds > 0) {
+        startTimedChallenge(currentTimedSeconds);
       }
       // 刷新统计面板
       renderStats();
@@ -600,15 +627,34 @@ function initSettings(): void {
     document.getElementById('typing-display')?.style.setProperty('font-size', `${fontSizeSlider.value}px`);
     document.getElementById('typing-display-free')?.style.setProperty('font-size', `${fontSizeSlider.value}px`);
     document.getElementById('typing-display-timed')?.style.setProperty('font-size', `${fontSizeSlider.value}px`);
+    progressStore.save(currentProgress).catch(console.error);
   });
 
   document.getElementById('theme-toggle')?.addEventListener('click', () => {
     currentProgress.preferences.theme = currentProgress.preferences.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', currentProgress.preferences.theme);
+    progressStore.save(currentProgress).catch(console.error);
   });
 
   document.getElementById('sound-toggle')?.addEventListener('click', () => {
     currentProgress.preferences.soundEnabled = !currentProgress.preferences.soundEnabled;
+    // 如果键盘已初始化，更新音效设置
+    if (keyboard) {
+      keyboard.destroy();
+      keyboard = null;
+    }
+    // 根据当前模式重新初始化键盘
+    const activeDisplay = document.querySelector('.section.active');
+    if (activeDisplay) {
+      const containerId = activeDisplay.id?.replace('section-', 'keyboard-container-');
+      if (containerId && document.getElementById(containerId)) {
+        keyboard = new VirtualKeyboard({
+          containerId: containerId,
+          soundEnabled: currentProgress.preferences.soundEnabled,
+        });
+      }
+    }
+    progressStore.save(currentProgress).catch(console.error);
   });
 }
 

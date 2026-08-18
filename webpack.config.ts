@@ -34,6 +34,10 @@ const plugins: any[] = [
           : './src/browser-chrome/manifest.json',
         to: 'manifest.json',
       },
+      {
+        from: './icons',
+        to: 'icons',
+      },
     ],
   }),
 ];

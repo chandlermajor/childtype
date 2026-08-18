@@ -11,7 +11,6 @@ export interface KeyboardOptions {
   highlightKey?: string | null;
   showFingerLabels?: boolean;
   soundEnabled?: boolean;
-  flashKey?: string | null;  // 闪烁提示的按键
 }
 
 export class VirtualKeyboard {
@@ -19,7 +18,7 @@ export class VirtualKeyboard {
   private options: KeyboardOptions;
   private pressedKeys: Set<string> = new Set();
   private audioCtx: AudioContext | null = null;
-  private flashInterval: number | null = null;
+
 
   constructor(options: KeyboardOptions) {
     this.options = options;
@@ -129,31 +128,6 @@ export class VirtualKeyboard {
     }
   }
 
-  /** 闪烁提示按键 */
-  flashKey(key: string | null): void {
-    // 清除之前的闪烁
-    if (this.flashInterval) {
-      clearInterval(this.flashInterval);
-      this.flashInterval = null;
-    }
-
-    if (!key) {
-      this.container.querySelectorAll('.key.flash').forEach((el) => {
-        el.classList.remove('flash');
-      });
-      return;
-    }
-
-    const keyEl = this.container.querySelector(`.key[data-key="${key.toUpperCase()}"]`);
-    if (!keyEl) return;
-
-    let flashing = true;
-    this.flashInterval = window.setInterval(() => {
-      if (!flashing) return;
-      keyEl.classList.toggle('flash');
-    }, 500);
-  }
-
   /** 按下按键动画 */
   pressKey(key: string): void {
     const keyEl = this.container.querySelector(`.key[data-key="${key.toUpperCase()}"]`);
@@ -183,10 +157,6 @@ export class VirtualKeyboard {
 
   /** 销毁 */
   destroy(): void {
-    if (this.flashInterval) {
-      clearInterval(this.flashInterval);
-      this.flashInterval = null;
-    }
     if (this.audioCtx) {
       this.audioCtx.close();
       this.audioCtx = null;

@@ -164,13 +164,20 @@ body {
 }
 
 /* ==================== 打字区域 ==================== */
+#typing-area-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
 #typing-display,
 #typing-display-free,
 #typing-display-timed {
   background: var(--bg-card);
   border-radius: var(--radius);
   padding: 32px;
-  margin-bottom: 24px;
+  margin-bottom: 0;
   box-shadow: var(--shadow);
   font-size: 28px;
   line-height: 2;
