@@ -1,0 +1,438 @@
+/* ================================
+   childtype 主样式
+   ================================ */
+
+:root {
+  --bg-primary: #F0F4F8;
+  --bg-secondary: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --text-primary: #2D3748;
+  --text-secondary: #718096;
+  --accent-primary: #667EEA;
+  --accent-secondary: #764BA2;
+  --border-color: #E2E8F0;
+  --success: #48BB78;
+  --warning: #F6AD55;
+  --error: #FC8181;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --transition: 0.2s ease;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #1A202C;
+  --bg-secondary: #2D3748;
+  --bg-card: #4A5568;
+  --text-primary: #E2E8F0;
+  --text-secondary: #A0AEC0;
+  --border-color: #4A5568;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+#app {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  grid-template-columns: 1fr 280px;
+  grid-template-areas:
+    "header header"
+    "main stats";
+  min-height: 100vh;
+}
+
+/* ==================== Header ==================== */
+#header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: var(--shadow);
+}
+
+#header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+#nav {
+  display: flex;
+  gap: 8px;
+}
+
+.nav-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.nav-btn:hover {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.nav-btn.active {
+  background: var(--accent-primary);
+  color: white;
+}
+
+/* ==================== Main ==================== */
+#main {
+  grid-area: main;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.section {
+  display: none;
+}
+
+.section.active {
+  display: block;
+}
+
+/* ==================== 模式选择器 ==================== */
+.mode-selector {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.mode-btn {
+  padding: 10px 20px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.mode-btn:hover {
+  border-color: var(--accent-primary);
+}
+
+.mode-btn.active {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary);
+  color: white;
+}
+
+.mode-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lesson-btn {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 8px;
+}
+
+.level-btn {
+  flex: 1;
+  min-width: 100px;
+}
+
+/* ==================== 打字区域 ==================== */
+#typing-display,
+#typing-display-free,
+#typing-display-timed {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 32px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+  font-size: 28px;
+  line-height: 2;
+  min-height: 120px;
+  position: relative;
+}
+
+#typing-display .char,
+#typing-display-free .char,
+#typing-display-timed .char {
+  display: inline;
+  transition: color var(--transition);
+}
+
+#typing-display .char.correct,
+#typing-display-free .char.correct,
+#typing-display-timed .char.correct {
+  color: var(--success);
+}
+
+#typing-display .char.wrong,
+#typing-display-free .char.wrong,
+#typing-display-timed .char.wrong {
+  color: var(--error);
+  text-decoration: underline;
+}
+
+#typing-display .char.current,
+#typing-display-free .char.current,
+#typing-display-timed .char.current {
+  background: var(--accent-primary);
+  color: white;
+  border-radius: 2px;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ==================== 结果弹窗 ==================== */
+.result-modal {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.result-modal h2 {
+  font-size: 28px;
+  margin-bottom: 16px;
+  color: var(--accent-primary);
+}
+
+.stars-display {
+  font-size: 48px;
+  margin: 16px 0;
+  animation: starPop 0.5s ease-out;
+}
+
+@keyframes starPop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.stat-item {
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--accent-primary);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.retry-btn {
+  margin-top: 16px;
+  padding: 12px 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent-primary);
+  color: white;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.retry-btn:hover {
+  background: var(--accent-secondary);
+  transform: scale(1.05);
+}
+
+/* ==================== 统计面板 ==================== */
+#stats-panel {
+  grid-area: stats;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-color);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+
+.stat-card h3 {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.stat-card .value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent-primary);
+}
+
+.stat-card .label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.level-progress {
+  height: 4px;
+  background: var(--bg-primary);
+  border-radius: 2px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* ==================== 设置面板 ==================== */
+#settings-panel {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.settings-group {
+  margin-bottom: 24px;
+}
+
+.settings-group h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.settings-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.settings-group input[type="range"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.toggle-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.toggle-btn.active {
+  background: var(--success);
+  color: white;
+  border-color: var(--success);
+}
+
+/* ==================== 课程提示 ==================== */
+#typing-hint,
+#free-hint,
+#timed-hint {
+  text-align: center;
+  color: var(--text-secondary);
+  margin: 12px 0;
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* ==================== 成就网格 ==================== */
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.achievement-item {
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  text-align: center;
+  transition: all var(--transition);
+}
+
+.achievement-item.unlocked {
+  background: var(--bg-card);
+  box-shadow: 0 0 8px rgba(102, 126, 234, 0.3);
+}
+
+.achievement-item.locked {
+  opacity: 0.5;
+}
+
+.achievement-icon {
+  font-size: 32px;
+  margin-bottom: 4px;
+}
+
+.achievement-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.achievement-desc {
+  font-size: 10px;
+  color: var(--text-secondary);
+}

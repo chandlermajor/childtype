@@ -1,0 +1,2 @@
+(()=>{"use strict";browser.runtime.onInstalled.addListener(()=>{console.log("childtype Firefox extension installed")}),browser.runtime.onMessage.addListener(e=>("OPEN_PRACTICE"===e.type&&browser.tabs.create({url:browser.runtime.getURL("index.html")}),!0))})();
+//# sourceMappingURL=background.js.map

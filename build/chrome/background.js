@@ -1,0 +1,2 @@
+(()=>{"use strict";chrome.runtime.onInstalled.addListener(()=>{console.log("childtype Chrome extension installed")}),chrome.action.onClicked.addListener(e=>{chrome.tabs.create({url:chrome.runtime.getURL("index.html")})})})();
+//# sourceMappingURL=background.js.map
