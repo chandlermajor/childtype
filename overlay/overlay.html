@@ -6,8 +6,9 @@
   <link rel="stylesheet" href="overlay.css">
 </head>
 <body>
-  <!-- Top Bar: Mode + Stats -->
-  <div class="overlay__topbar">
+  <div id="childtype-overlay">
+    <!-- Top Bar: Mode + Stats -->
+    <div class="overlay__topbar">
     <div class="overlay__mode-label" id="overlay-mode-label">字母练习</div>
     <div class="overlay__stats">
       <div class="overlay__stat">
@@ -116,6 +117,7 @@
   <div class="overlay__notification" id="notification" hidden>
     <span class="overlay__notification-icon" id="notification-icon">🎉</span>
     <span class="overlay__notification-text" id="notification-text">升级!</span>
+  </div>
   </div>
 
   <script src="overlay.js"></script>

@@ -186,6 +186,13 @@ function createOverlayContainer() {
 
 // ===== Initialize =====
 function init() {
+  // Guard against double initialization (e.g. overlay.js loaded as both
+  // extension page script and injected content script).
+  if (window.__childtypeOverlayInit__) {
+    return;
+  }
+  window.__childtypeOverlayInit__ = true;
+
   // Check if we're running on the overlay.html page itself
   const isOverlayPage = window.location.pathname.endsWith('overlay.html');
   
@@ -227,6 +234,9 @@ function init() {
 function handleMessage(message) {
   switch (message.type) {
     case 'START_SESSION':
+      // Store the mode so it's available even if keys are pressed before session starts
+      state.mode = message.data.mode || 'letters';
+      state.difficulty = message.data.difficulty || 'normal';
       startSession(message.data.mode, message.data.difficulty);
       break;
     case 'STOP_SESSION':
@@ -401,7 +411,19 @@ function updateTargetDisplay() {
  * @param {KeyboardEvent} e
  */
 function handleKeyDown(e) {
-  if (!state.active) return;
+  if (!state.active) {
+    // Pressing any key starts the session (if a mode was already selected)
+    // The service worker sends START_SESSION, but we also allow keypress to start it
+    // as a fallback in case the message was delayed or lost
+    if (state.mode) {
+      try {
+        startSession(state.mode, state.difficulty);
+      } catch (err) {
+        console.error('[Overlay] Failed to start session on keypress:', err);
+      }
+    }
+    return;
+  }
   if (e.ctrlKey || e.altKey || e.metaKey) return; // 忽略修饰键组合
   if (e.repeat) return; // 忽略重复按键
 
