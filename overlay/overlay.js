@@ -62,6 +62,7 @@ const LETTERS_PER_BATCH = 16;
 // 字母练习批处理状态
 let lettersBatch = [];   // 当前批次的字母数组（共 16 个）
 let lettersBatchIndex = 0;  // 当前进度
+let lettersMasterBatch = []; // 主批次：保持同一组字母，只打乱顺序
 
 // ===== Finger / Phase helpers =====
 const PROGRESS_LS_KEY = 'childtype-progress';
@@ -98,12 +99,12 @@ async function readCurrentFingerPhase() {
 
 async function getPhaseKeysForLayout(phaseId) {
   try {
-    const { DEFAULT_FINGER_PHASES } = await import('../data/finger-phases.js');
+    const { DEFAULT_FINGER_PHASES, keysForPhase } = await import('../data/finger-phases.js');
     const phase = DEFAULT_FINGER_PHASES[phaseId];
     if (!phase) return [];
     const { layoutData } = await getLayout();
-    const keys = (phase.keys || []).filter(Boolean);
-    return keys;
+    const keys = keysForPhase(phase, layoutData.name);
+    return keys.filter(Boolean);
   } catch {
     return [];
   }
@@ -254,6 +255,8 @@ function createOverlayContainer() {
   `;
 
   document.body.appendChild(container);
+  // 默认隐藏，不拦截页面交互（仅在 startSession 时显示）
+  container.classList.add('hidden');
   return container;
 }
 
@@ -275,6 +278,15 @@ if (isOverlayPage) {
   } else {
     // Being injected into another page - create overlay container
     createOverlayContainer();
+  }
+
+  // 默认隐藏，不拦截页面交互（仅在 startSession 时显示）
+  // 仅对注入到第三方页面的覆盖层生效；overlay.html 自身页面保持可见
+  if (!isOverlayPage) {
+    const overlayEl = document.getElementById('childtype-overlay');
+    if (overlayEl && !overlayEl.classList.contains('hidden')) {
+      overlayEl.classList.add('hidden');
+    }
   }
 
   // Fetch DOM elements (must happen after container exists)
@@ -384,6 +396,7 @@ function startSession(mode, difficulty) {
   // 重置字母批次
   lettersBatch = [];
   lettersBatchIndex = 0;
+  lettersMasterBatch = [];
   generateBatch();
 
   // 更新 UI
@@ -400,7 +413,7 @@ function startSession(mode, difficulty) {
   startTimer();
 
   // 设置下一个目标
-  setNextTarget();
+  await setNextTarget();
 
   // 高亮第一个键
   highlightNextKey();
@@ -458,7 +471,7 @@ function togglePause() {
 /**
  * 获取下一个目标
  */
-function setNextTarget() {
+async function setNextTarget() {
   switch (state.mode) {
     case 'letters':
       state.batchTarget = getBatchLetters();
@@ -478,7 +491,7 @@ function setNextTarget() {
       state.target = null; // 自由模式不限制目标
       break;
     case 'finger':
-      setFingerTarget();
+      await setFingerTarget();
       break;
     default:
       state.target = getRandomLetter();
@@ -601,14 +614,14 @@ async function processKey(pressedKey, code) {
     : state.target;
 
   if (!expected) {
-    setNextTarget();
+    await setNextTarget();
     return;
   }
 
   if (state.mode === 'letters') {
     expected = state.batchTarget[state.batchIndex];
     if (!expected) {
-      setNextTarget();
+      await setNextTarget();
       return;
     }
   }
@@ -646,31 +659,31 @@ async function processKey(pressedKey, code) {
      if (state.mode === 'letters') {
        state.batchIndex++;
        state.target = state.batchTarget[state.batchIndex] || null;
-       if (state.batchIndex >= state.batchTarget.length) {
-         setNextTarget();
+        if (state.batchIndex >= state.batchTarget.length) {
+          await setNextTarget();
+        } else {
+          updateTargetDisplay();
+          highlightNextKey();
+        }
+      } else if (state.mode === 'words') {
+       state._wordIndex++;
+       const word = typeof state.target === 'object' ? state.target.text : state.target;
+       if (state._wordIndex >= word.length) {
+         await setNextTarget();
        } else {
          updateTargetDisplay();
          highlightNextKey();
        }
-     } else if (state.mode === 'words') {
-      state._wordIndex++;
-      const word = typeof state.target === 'object' ? state.target.text : state.target;
-      if (state._wordIndex >= word.length) {
-        setNextTarget();
-      } else {
-        updateTargetDisplay();
-        highlightNextKey();
-      }
-    } else if (state.mode === 'sentences') {
-      state._charIndex++;
-      const sentence = typeof state.target === 'object' ? state.target.text : state.target;
-      if (state._charIndex >= sentence.length) {
-        setNextTarget();
-      } else {
-        updateTargetDisplay();
-        highlightNextKey();
-      }
-    }
+     } else if (state.mode === 'sentences') {
+       state._charIndex++;
+       const sentence = typeof state.target === 'object' ? state.target.text : state.target;
+       if (state._charIndex >= sentence.length) {
+         await setNextTarget();
+       } else {
+         updateTargetDisplay();
+         highlightNextKey();
+       }
+     }
 } else {
      state.errors++;
      state.streak = 0;
@@ -771,11 +784,15 @@ function getModeLabel(mode) {
 
 /**
  * 生成一个新的字母批次（16 个字母）
+ * 如果已有主批次，则打乱主批次的顺序；否则生成新的主批次
  * @returns {string[]}
  */
 function generateBatch() {
-  const shuffled = [...LETTERS].sort(() => Math.random() - 0.5);
-  lettersBatch = shuffled.slice(0, LETTERS_PER_BATCH);
+  if (lettersMasterBatch.length === 0) {
+    const shuffled = [...LETTERS].sort(() => Math.random() - 0.5);
+    lettersMasterBatch = shuffled.slice(0, LETTERS_PER_BATCH);
+  }
+  lettersBatch = [...lettersMasterBatch].sort(() => Math.random() - 0.5);
   lettersBatchIndex = 0;
   return lettersBatch;
 }
