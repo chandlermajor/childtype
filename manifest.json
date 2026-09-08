@@ -58,7 +58,13 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["overlay/overlay.html", "overlay/overlay.css", "overlay/overlay.js"],
+      "resources": [
+        "overlay/overlay.html",
+        "overlay/overlay.css",
+        "overlay/overlay.js",
+        "modules/*.js",
+        "data/*.js"
+      ],
       "matches": ["<all_urls>"]
     }
   ],

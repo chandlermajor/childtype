@@ -54,6 +54,12 @@ async function init() {
     option.textContent = `${size}px`;
     settingFontSize.appendChild(option);
   });
+
+  // 初始化时按当前选中模式刷新快速统计
+  const activeModeBtn = document.querySelector('.popup__mode-btn--active');
+  if (activeModeBtn) {
+    await refreshModeStats(activeModeBtn.dataset.mode);
+  }
 }
 
 /**
@@ -96,6 +102,26 @@ async function loadProgress() {
     }
   } catch (error) {
     console.error('[Popup] Failed to load progress:', error);
+  }
+}
+
+/**
+ * 刷新指定模式的快速统计
+ * 字母模式按 16 字母批次统计，显示该模式的最佳 WPM/准确率
+ * @param {string} mode
+ */
+async function refreshModeStats(mode) {
+  try {
+    const progress = await chrome.runtime.sendMessage({ action: 'getProgress' });
+    if (!progress || !progress.modeStats || !progress.modeStats[mode]) {
+      return;
+    }
+    const stat = progress.modeStats[mode];
+    statWpm.textContent = stat.bestWPM || '--';
+    statAccuracy.textContent = `${stat.accuracy}%`;
+    statTime.textContent = `${Math.round(stat.totalMinutes)}m`;
+  } catch (error) {
+    console.error('[Popup] Failed to refresh mode stats:', error);
   }
 }
 
@@ -155,12 +181,15 @@ async function loadAchievements() {
 
 // ===== Event Listeners =====
 
-// 模式选择
-modeButtons.forEach(btn => {
-  btn.addEventListener('click', async () => {
-    // 更新按钮状态
-    modeButtons.forEach(b => b.classList.remove('popup__mode-btn--active'));
-    btn.classList.add('popup__mode-btn--active');
+  // 模式选择
+  modeButtons.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      // 更新按钮状态
+      modeButtons.forEach(b => b.classList.remove('popup__mode-btn--active'));
+      btn.classList.add('popup__mode-btn--active');
+
+      // 刷新快速统计：显示该模式的最佳数据（字母模式按批次统计）
+      await refreshModeStats(btn.dataset.mode);
 
     // 发送消息启动 overlay
     const mode = btn.dataset.mode;

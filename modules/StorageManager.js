@@ -31,7 +31,20 @@ const DEFAULTS = {
     modesPlayed: [],
     lastPracticeDate: null,
     consecutiveDays: 0,
-    dailyHistory: []
+    dailyHistory: [],
+    fingerPhase: 0,
+    fingerStats: {
+      'left-pinky': { sessions: 0, attempts: 0, correct: 0, errors: 0, msSamples: [] },
+      'left-ring': { sessions: 0, attempts: 0, correct: 0, errors: 0, msSamples: [] },
+      'left-middle': { sessions: 0, attempts: 0, correct: 0, errors: 0, msSamples: [] },
+      'left-index': { sessions: 0, attempts: 0, correct: 0, errors: 0, msSamples: [] },
+      'thumb': { sessions: 0, attempts: 0, correct: 0, errors: 0, msSamples: [] },
+      'right-index': { sessions: 0, attempts: 0, correct: 0, errors: 0, msSamples: [] },
+      'right-middle': { sessions: 0, attempts: 0, correct: 0, errors: 0, msSamples: [] },
+      'right-ring': { sessions: 0, attempts: 0, correct: 0, errors: 0, msSamples: [] },
+      'right-pinky': { sessions: 0, attempts: 0, correct: 0, errors: 0, msSamples: [] }
+    },
+    keyProficiency: {}
   },
   achievements: {
     unlocked: [],

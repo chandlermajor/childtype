@@ -7,7 +7,7 @@
 import store from './StorageManager.js';
 
 const VALID_LAYOUTS = ['QWERTY', 'AZERTY'];
-const VALID_THEMES = ['light', 'dark'];
+const VALID_THEMES = ['light', 'dark', 'eye'];
 const VALID_DIFFICULTIES = ['easy', 'normal', 'hard'];
 const VALID_MODES = ['letters', 'words', 'sentences', 'free', 'finger'];
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48];
@@ -119,7 +119,8 @@ class SettingsManager {
   getThemeOptions() {
     return [
       { value: 'light', label: '浅色' },
-      { value: 'dark', label: '深色' }
+      { value: 'dark', label: '深色' },
+      { value: 'eye', label: '护眼' }
     ];
   }
 

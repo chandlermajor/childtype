@@ -30,6 +30,7 @@ const SESSION_BONUS = 5;
 class LevelSystem {
   constructor() {
     this._listeners = {};
+    this._addingExp = false;
   }
 
   /** 注册事件监听 */
@@ -87,9 +88,22 @@ class LevelSystem {
    * 增加经验值，可能触发升级
    * @param {number} baseExp - 基础经验值
    * @param {string} difficulty - 难度（影响经验倍率）
+   * @param {string} source - 经验来源（session/achievement 等）
    * @returns {Object} 升级信息 { leveledUp, oldLevel, newLevel, totalExp, expGained }
    */
-  async addExperience(baseExp, difficulty = 'normal') {
+  async addExperience(baseExp, difficulty = 'normal', source = 'session') {
+    if (this._addingExp) {
+      return { leveledUp: false, oldLevel: (await store.get('progress')).currentLevel, newLevel: (await store.get('progress')).currentLevel, totalExp: (await store.get('progress')).experience, expGained: 0 };
+    }
+    this._addingExp = true;
+    try {
+      return await this._addExperienceInternal(baseExp, difficulty, source);
+    } finally {
+      this._addingExp = false;
+    }
+  }
+
+  async _addExperienceInternal(baseExp, difficulty, source) {
     const progress = await store.get('progress');
     const modifier = DIFFICULTY_MODIFIERS[difficulty] || 1;
     const gained = Math.round((baseExp + SESSION_BONUS) * modifier);
@@ -108,8 +122,19 @@ class LevelSystem {
         newLevel: newLevelInfo.level,
         totalExp: newExp,
         levelName: newLevelInfo.name,
-        levelIcon: newLevelInfo.icon
+        levelIcon: newLevelInfo.icon,
+        source
       });
+
+      // 等级提升时检查等级相关成就
+      if (source === 'session' || source === 'achievement') {
+        try {
+          const ach = (await import('./AchievementSystem.js')).default;
+          await ach.checkLevelAchievements(newLevelInfo.level);
+        } catch (levelAchErr) {
+          console.error('[LevelSystem] Failed to check level achievements:', levelAchErr);
+        }
+      }
     }
 
     return {

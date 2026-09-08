@@ -36,6 +36,31 @@
   --overlay-home-indicator: #FFD700;
 }
 
+/* ===== Eye-Protection Theme ===== */
+:root[data-theme="eye"] {
+  --overlay-bg: rgba(224, 238, 220, 0.96);
+  --overlay-topbar-bg: #4E944A;
+  --overlay-text: #2B3A27;
+  --overlay-text-light: #FFFFFF;
+  --overlay-key-bg: #D8E6D2;
+  --overlay-key-border: #B9CBA9;
+  --overlay-key-shadow: rgba(60, 90, 50, 0.2);
+  --overlay-key-target: #3A7A38;
+  --overlay-key-active: #7FB97B;
+  --overlay-key-correct: #3AA764;
+  --overlay-key-wrong: #C0392B;
+  --overlay-finger-left-pinky: #E08A85;
+  --overlay-finger-left-ring: #E8A0BF;
+  --overlay-finger-left-middle: #E5C76B;
+  --overlay-finger-left-index: #5BBF95;
+  --overlay-finger-right-index: #6AAEE0;
+  --overlay-finger-right-middle: #74C9C0;
+  --overlay-finger-right-ring: #E8B79E;
+  --overlay-finger-right-pinky: #E07A7A;
+  --overlay-finger-thumb: #C9DCC1;
+  --overlay-home-indicator: #C9A227;
+}
+
 /* ===== Dark Theme ===== */
 :root[data-theme="dark"] {
   --overlay-bg: rgba(30, 30, 46, 0.95);
@@ -68,7 +93,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 2147483647;
+  z-index: 2147483000;
+  pointer-events: none;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: var(--overlay-bg);
   display: flex;
@@ -80,6 +106,12 @@
 #childtype-overlay.hidden {
   opacity: 0;
   pointer-events: none;
+  visibility: hidden;
+}
+
+/* 激活时允许交互（暂停/关闭按钮等） */
+#childtype-overlay:not(.hidden) {
+  pointer-events: auto;
 }
 
 /* ===== Top Bar ===== */
@@ -154,11 +186,26 @@
 }
 
 .overlay__target-letter {
-  font-size: 72px;
+  font-size: 64px;
   font-weight: 700;
   color: var(--overlay-key-target);
-  line-height: 1.2;
+  line-height: 1.3;
+  word-spacing: 6px;
+  white-space: normal;
   transition: transform 0.1s ease;
+}
+
+.overlay__target-letter .target-current {
+  color: var(--overlay-key-active);
+}
+
+.overlay__target-letter .target-done {
+  color: var(--overlay-key-correct);
+}
+
+.overlay__target-letter .target-pending {
+  color: var(--overlay-text);
+  opacity: 0.4;
 }
 
 .overlay__target-letter.pop {

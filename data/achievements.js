@@ -201,6 +201,60 @@ const ACHIEVEMENTS = [
     icon: '📅',
     condition: { type: 'consecutiveDays', threshold: 7 },
     experienceReward: 100
+  },
+  {
+    id: 'phase_home',
+    name: '基准稳固',
+    nameEn: 'Home Row Master',
+    description: '完成指法训练：基准键阶段',
+    icon: '🏠',
+    condition: { type: 'fingerPhase', threshold: 1 },
+    experienceReward: 40
+  },
+  {
+    id: 'phase_single',
+    name: '单指有成',
+    nameEn: 'Single Finger Pro',
+    description: '完成指法训练：单指列阶段',
+    icon: '👉',
+    condition: { type: 'fingerPhase', threshold: 2 },
+    experienceReward: 60
+  },
+  {
+    id: 'phase_onehand',
+    name: '单手娴熟',
+    nameEn: 'One Hand Expert',
+    description: '完成指法训练：单手往返阶段',
+    icon: '🖐️',
+    condition: { type: 'fingerPhase', threshold: 3 },
+    experienceReward: 80
+  },
+  {
+    id: 'phase_both',
+    name: '双手协调',
+    nameEn: 'Both Hands Coordinated',
+    description: '完成指法训练：双手混合阶段',
+    icon: '👐',
+    condition: { type: 'fingerPhase', threshold: 4 },
+    experienceReward: 100
+  },
+  {
+    id: 'phase_top',
+    name: '上排自如',
+    nameEn: 'Top Row Fluent',
+    description: '完成指法训练：上排阶段',
+    icon: '⬆️',
+    condition: { type: 'fingerPhase', threshold: 5 },
+    experienceReward: 80
+  },
+  {
+    id: 'phase_bottom',
+    name: '下排+',
+    nameEn: 'Bottom Row + Symbols',
+    description: '完成指法训练：下排+符号阶段',
+    icon: '⬇️',
+    condition: { type: 'fingerPhase', threshold: 6 },
+    experienceReward: 80
   }
 ];
 

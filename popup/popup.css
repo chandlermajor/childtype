@@ -30,6 +30,32 @@
   --achievement-locked: #CCCCCC;
 }
 
+/* ===== Eye-Protection Theme ===== */
+:root[data-theme="eye"] {
+  --bg-primary: #E7F0E3;
+  --bg-secondary: #D8E6D2;
+  --bg-tertiary: #C9DCC1;
+  --text-primary: #2B3A27;
+  --text-secondary: #4A5E44;
+  --text-muted: #6E7C64;
+  --accent: #4E944A;
+  --accent-light: #7FB97B;
+  --success: #3AA764;
+  --warning: #E5C76B;
+  --error: #C0392B;
+  --border: #B9CBA9;
+  --shadow: rgba(60, 90, 50, 0.15);
+  --btn-hover: #C9DCC1;
+  --mode-active-bg: #4E944A;
+  --mode-active-text: #FFFFFF;
+  --mode-inactive-bg: #D8E6D2;
+  --mode-inactive-text: #4A5E44;
+  --progress-bg: #B9CBA9;
+  --progress-fill: linear-gradient(90deg, #4E944A, #7FB97B);
+  --achievement-unlocked: #C9A227;
+  --achievement-locked: #B9CBA9;
+}
+
 /* ===== Dark Theme ===== */
 :root[data-theme="dark"] {
   --bg-primary: #1E1E2E;

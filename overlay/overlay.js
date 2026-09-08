@@ -23,6 +23,8 @@ let state = {
   mode: 'letters',
   difficulty: 'normal',
   target: null,
+  batchTarget: [],
+  batchIndex: 0,
   startTime: null,
   paused: false,
   pauseTime: 0,
@@ -55,21 +57,92 @@ const SENTENCES_MEDIUM = [
 
 // Letter pool for random mode
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
+const LETTERS_PER_BATCH = 16;
 
-// ===== DOM Elements =====
-const targetLetter = document.getElementById('target-letter');
-const targetHint = document.getElementById('target-hint');
-const overlayModeLabel = document.getElementById('overlay-mode-label');
-const overlayWpm = document.getElementById('overlay-wpm');
-const overlayAccuracy = document.getElementById('overlay-accuracy');
-const overlayStreak = document.getElementById('overlay-streak');
-const overlayTimer = document.getElementById('overlay-timer');
-const btnPause = document.getElementById('btn-pause');
-const btnClose = document.getElementById('btn-close');
-const notification = document.getElementById('notification');
-const notificationIcon = document.getElementById('notification-icon');
-const notificationText = document.getElementById('notification-text');
-const keyboardContainer = document.getElementById('keyboard-container');
+// 字母练习批处理状态
+let lettersBatch = [];   // 当前批次的字母数组（共 16 个）
+let lettersBatchIndex = 0;  // 当前进度
+
+// ===== Finger / Phase helpers =====
+const PROGRESS_LS_KEY = 'childtype-progress';
+
+async function getLayout() {
+  try {
+    const settings = await chrome.storage.local.get(['settings']);
+    const layout = (settings.settings && settings.settings.keyboardLayout) || 'QWERTY';
+    const layoutData = (await import('../data/keyboard-layouts.js')).default;
+    return { layout, layoutData: layoutData[layout] || layoutData.QWERTY };
+  } catch {
+    const layoutData = (await import('../data/keyboard-layouts.js')).default;
+    return { layout: 'QWERTY', layoutData: layoutData.QWERTY };
+  }
+}
+
+async function getFingerForKey(char) {
+  try {
+    const { layoutData } = await getLayout();
+    return (layoutData.fingerMap && layoutData.fingerMap[char.toLowerCase()]) || 'thumb';
+  } catch {
+    return 'thumb';
+  }
+}
+
+async function readCurrentFingerPhase() {
+  try {
+    const data = await chrome.storage.local.get([PROGRESS_LS_KEY]);
+    const progress = data[PROGRESS_LS_KEY];
+    if (progress && typeof progress.fingerPhase === 'number') return progress.fingerPhase;
+  } catch {}
+  return 0;
+}
+
+async function getPhaseKeysForLayout(phaseId) {
+  try {
+    const { DEFAULT_FINGER_PHASES } = await import('../data/finger-phases.js');
+    const phase = DEFAULT_FINGER_PHASES[phaseId];
+    if (!phase) return [];
+    const { layoutData } = await getLayout();
+    const keys = (phase.keys || []).filter(Boolean);
+    return keys;
+  } catch {
+    return [];
+  }
+}
+
+async function getLetterForPhase(phaseId) {
+  const allKeys = await getPhaseKeysForLayout(phaseId);
+  if (!allKeys || !allKeys.length) return getRandomLetter();
+  return allKeys[Math.floor(Math.random() * allKeys.length)];
+}
+
+async function applyFingerPhaseHighlight(phaseId) {
+  const keys = await getPhaseKeysForLayout(phaseId);
+  const keySet = new Set(keys.map(k => k.toLowerCase()));
+  const allKeys = document.querySelectorAll('.overlay__key');
+  allKeys.forEach(el => {
+    const dataKey = (el.getAttribute('data-key') || '').toLowerCase();
+    if (keySet.size === 0 || keySet.has(dataKey)) {
+      el.style.opacity = '1';
+    } else {
+      el.style.opacity = '0.15';
+    }
+  });
+}
+
+// ===== DOM Elements (fetched lazily in init) =====
+let targetLetter = null;
+let targetHint = null;
+let overlayModeLabel = null;
+let overlayWpm = null;
+let overlayAccuracy = null;
+let overlayStreak = null;
+let overlayTimer = null;
+let btnPause = null;
+let btnClose = null;
+let notification = null;
+let notificationIcon = null;
+let notificationText = null;
+let keyboardContainer = null;
 
 // ===== Create overlay container =====
 function createOverlayContainer() {
@@ -196,14 +269,29 @@ function init() {
   // Check if we're running on the overlay.html page itself
   const isOverlayPage = window.location.pathname.endsWith('overlay.html');
   
-  if (isOverlayPage) {
+if (isOverlayPage) {
     // On overlay.html page - use existing elements
     // Elements are already in the DOM from overlay.html
   } else {
     // Being injected into another page - create overlay container
     createOverlayContainer();
   }
-  
+
+  // Fetch DOM elements (must happen after container exists)
+  targetLetter = document.getElementById('target-letter');
+  targetHint = document.getElementById('target-hint');
+  overlayModeLabel = document.getElementById('overlay-mode-label');
+  overlayWpm = document.getElementById('overlay-wpm');
+  overlayAccuracy = document.getElementById('overlay-accuracy');
+  overlayStreak = document.getElementById('overlay-streak');
+  overlayTimer = document.getElementById('overlay-timer');
+  btnPause = document.getElementById('btn-pause');
+  btnClose = document.getElementById('btn-close');
+  notification = document.getElementById('notification');
+  notificationIcon = document.getElementById('notification-icon');
+  notificationText = document.getElementById('notification-text');
+  keyboardContainer = document.getElementById('keyboard-container');
+
   initSoundManager();
 
   // 监听来自 Service Worker 的消息
@@ -213,8 +301,8 @@ function init() {
   document.addEventListener('keydown', handleKeyDown);
 
   // 按钮事件
-  btnClose.addEventListener('click', stopOverlay);
-  btnPause.addEventListener('click', togglePause);
+  if (btnClose) btnClose.addEventListener('click', stopOverlay);
+  if (btnPause) btnPause.addEventListener('click', togglePause);
 
   // 快捷键
   document.addEventListener('keydown', (e) => {
@@ -231,7 +319,7 @@ function init() {
  * 处理来自 Service Worker / Popup 的消息
  * @param {Object} message
  */
-function handleMessage(message) {
+async function handleMessage(message) {
   switch (message.type) {
     case 'START_SESSION':
       // Store the mode so it's available even if keys are pressed before session starts
@@ -245,15 +333,25 @@ function handleMessage(message) {
     case 'pauseSession':
       togglePause();
       break;
-    case 'LEVEL_UP':
-      showNotification('🎉', `升级到 Lv.${message.data.newLevel}! ${message.data.levelName}`);
-      break;
-    case 'ACHIEVEMENT_UNLOCKED':
-      showNotification('🏆', `成就解锁: ${message.data.achievement.name}`);
+    case 'REWARD_UNLOCKED':
+      handleRewardUnlocked(message.data);
       break;
     case 'THEME_CHANGE':
       document.documentElement.dataset.theme = message.data.theme;
       break;
+    case 'PHASE_ADVANCE': {
+      try {
+        const data = await chrome.storage.local.get([PROGRESS_LS_KEY]);
+        const progress = data[PROGRESS_LS_KEY] || {};
+        progress.fingerPhase = message.data.phase;
+        await chrome.storage.local.set({ [PROGRESS_LS_KEY]: progress });
+        await applyFingerPhaseHighlight(message.data.phase);
+        showNotification('👆', `指法进入新阶段：${message.data.phase + 1}`);
+      } catch (err) {
+        console.error('[Overlay] Failed to handle PHASE_ADVANCE:', err);
+      }
+      break;
+    }
   }
 }
 
@@ -280,6 +378,13 @@ function startSession(mode, difficulty) {
   state.streak = 0;
   state.maxStreak = 0;
   state.errors = 0;
+  state.batchTarget = [];
+  state.batchIndex = 0;
+
+  // 重置字母批次
+  lettersBatch = [];
+  lettersBatchIndex = 0;
+  generateBatch();
 
   // 更新 UI
   overlayModeLabel.textContent = getModeLabel(mode);
@@ -356,7 +461,9 @@ function togglePause() {
 function setNextTarget() {
   switch (state.mode) {
     case 'letters':
-      state.target = getRandomLetter();
+      state.batchTarget = getBatchLetters();
+      state.batchIndex = 0;
+      state.target = state.batchTarget[0] || null;
       break;
     case 'words':
       state.target = getRandomWord();
@@ -371,13 +478,27 @@ function setNextTarget() {
       state.target = null; // 自由模式不限制目标
       break;
     case 'finger':
-      state.target = getRandomLetter(); // TODO: finger-specific filtering
+      setFingerTarget();
       break;
     default:
       state.target = getRandomLetter();
   }
 
   updateTargetDisplay();
+}
+
+/**
+ * 指法模式：按当前阶段选键并高亮
+ */
+async function setFingerTarget() {
+  try {
+    const phaseId = await readCurrentFingerPhase();
+    state.target = await getLetterForPhase(phaseId);
+    await applyFingerPhaseHighlight(phaseId);
+  } catch (err) {
+    console.error('[Overlay] Failed to set finger target:', err);
+    state.target = getRandomLetter();
+  }
 }
 
 /**
@@ -390,7 +511,19 @@ function updateTargetDisplay() {
   }
 
   if (state.mode === 'letters') {
-    targetLetter.textContent = state.target.toUpperCase();
+    if (!state.batchTarget.length) {
+      targetLetter.textContent = '准备开始...';
+      return;
+    }
+    targetLetter.innerHTML = state.batchTarget.map((ch, i) => {
+      if (i < state.batchIndex) {
+        return `<span class="target-done">${ch.toUpperCase()}</span>`;
+      }
+      if (i === state.batchIndex) {
+        return `<span class="target-current">${ch.toUpperCase()}</span>`;
+      }
+      return `<span class="target-pending">${ch.toUpperCase()}</span>`;
+    }).join(' ');
   } else if (state.mode === 'words') {
     const word = typeof state.target === 'object' ? state.target.text : state.target;
     const display = word.split('').map((ch, i) =>
@@ -462,8 +595,8 @@ function handleKeyDown(e) {
  * @param {string} pressedKey - 按下的键
  * @param {string} code - 按键代码
  */
-function processKey(pressedKey, code) {
-  const expected = typeof state.target === 'object'
+async function processKey(pressedKey, code) {
+  let expected = typeof state.target === 'object'
     ? state.target.text[state.mode === 'sentences' ? (state._charIndex || 0) : (state._wordIndex || 0)]
     : state.target;
 
@@ -472,24 +605,54 @@ function processKey(pressedKey, code) {
     return;
   }
 
-  const isCorrect = pressedKey.toLowerCase() === expected.toLowerCase();
+  if (state.mode === 'letters') {
+    expected = state.batchTarget[state.batchIndex];
+    if (!expected) {
+      setNextTarget();
+      return;
+    }
+  }
+
+  const expectedChar = expected.toLowerCase();
+  const isCorrect = pressedKey.toLowerCase() === expectedChar;
 
   state.totalKeystrokes++;
   state.lastKeyTime = Date.now();
 
-if (isCorrect) {
+  try {
+    const finger = await getFingerForKey(expectedChar);
+    const responseMs = state.lastKeyTime ? Date.now() - state.lastKeyTime : null;
+    chrome.runtime.sendMessage({
+      action: 'recordKey',
+      key: expectedChar,
+      finger,
+      correct: isCorrect,
+      responseMs
+    });
+  } catch (recErr) {
+    console.error('[Overlay] Failed to record key:', recErr);
+  }
+
+  if (isCorrect) {
      state.correctKeystrokes++;
      state.streak++;
      if (state.streak > state.maxStreak) state.maxStreak = state.streak;
 
-     animateKey(pressedKey, true);
-     highlightKey(pressedKey, 'correct');
-     if (soundManager) soundManager.playCorrect();
+      animateKey(pressedKey, true);
+      highlightKey(pressedKey, 'correct');
+      if (soundManager) soundManager.playCorrect();
 
-     // 移动到下一个
-    if (state.mode === 'letters') {
-      setNextTarget();
-    } else if (state.mode === 'words') {
+      // 移动到下一个
+     if (state.mode === 'letters') {
+       state.batchIndex++;
+       state.target = state.batchTarget[state.batchIndex] || null;
+       if (state.batchIndex >= state.batchTarget.length) {
+         setNextTarget();
+       } else {
+         updateTargetDisplay();
+         highlightNextKey();
+       }
+     } else if (state.mode === 'words') {
       state._wordIndex++;
       const word = typeof state.target === 'object' ? state.target.text : state.target;
       if (state._wordIndex >= word.length) {
@@ -607,9 +770,38 @@ function getModeLabel(mode) {
 }
 
 /**
- * 获取随机字母
- * @returns {string}
+ * 生成一个新的字母批次（16 个字母）
+ * @returns {string[]}
  */
+function generateBatch() {
+  const shuffled = [...LETTERS].sort(() => Math.random() - 0.5);
+  lettersBatch = shuffled.slice(0, LETTERS_PER_BATCH);
+  lettersBatchIndex = 0;
+  return lettersBatch;
+}
+
+/**
+ * 获取一整批字母用于一次性展示
+ * @returns {string[]}
+ */
+function getBatchLetters() {
+  if (lettersBatch.length === 0 || lettersBatchIndex >= lettersBatch.length) {
+    if (lettersBatch.length > 0) {
+      chrome.runtime.sendMessage({
+        action: 'lettersBatchStarted',
+        batchIndex: lettersBatchIndex,
+        prevBatch: lettersBatch,
+        prevCount: lettersBatchIndex,
+        correct: state.correctKeystrokes,
+        total: state.totalKeystrokes,
+        batchWpm: calculateWPM()
+      });
+    }
+    return generateBatch();
+  }
+  return lettersBatch;
+}
+
 function getRandomLetter() {
   return LETTERS[Math.floor(Math.random() * LETTERS.length)];
 }
@@ -656,9 +848,16 @@ function highlightNextKey() {
 
   if (!state.target) return;
 
-  const keyChar = typeof state.target === 'object'
-    ? state.target.text[state.mode === 'sentences' ? (state._charIndex || 0) : (state._wordIndex || 0)]
-    : state.target;
+  let keyChar;
+  if (state.mode === 'letters') {
+    keyChar = state.batchTarget[state.batchIndex];
+  } else if (state.mode === 'words') {
+    keyChar = state.target.text[state._wordIndex || 0];
+  } else if (state.mode === 'sentences') {
+    keyChar = state.target.text[state._charIndex || 0];
+  } else {
+    keyChar = typeof state.target === 'object' ? null : state.target;
+  }
 
   if (!keyChar) return;
 
@@ -701,6 +900,25 @@ function highlightKey(key, state) {
     setTimeout(() => {
       keyEl.classList.remove(`overlay__key--${state}`);
     }, 300);
+  }
+}
+
+/**
+ * 统一处理奖励解锁（升级 / 成就 / 阶段成就）
+ * @param {Object} data
+ */
+function handleRewardUnlocked(data) {
+  if (!data) return;
+  if (data.newLevel != null) {
+    let text = `升级到 Lv.${data.newLevel}! ${data.levelName || ''}`;
+    if (data.achievement) {
+      text += ` ｜ 成就解锁：${data.achievement.name}`;
+    }
+    showNotification('🎉', text.trim());
+    return;
+  }
+  if (data.achievement) {
+    showNotification('🏆', `成就解锁：${data.achievement.name}`);
   }
 }
 

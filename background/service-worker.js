@@ -8,6 +8,9 @@ import store from '../modules/StorageManager.js';
 import settingsManager from '../modules/SettingsManager.js';
 import levelSystem from '../modules/LevelSystem.js';
 import achievementSystem from '../modules/AchievementSystem.js';
+import fingerPhaseSystem from '../modules/FingerPhaseSystem.js';
+import layouts from '../data/keyboard-layouts.js';
+import { aggregateFingerStats, pruneKeyProficiency } from '../modules/FingerProficiency.js';
 
 // 跟踪当前 overlay 状态
 let currentOverlayState = {
@@ -50,13 +53,20 @@ function init() {
   // 等级升级事件 → 通知 overlay
   levelSystem.on('onLevelUp', async (data) => {
     console.log('[ChildType] Level up!', data);
-    await broadcastToOverlay({ type: 'LEVEL_UP', data });
+    await broadcastToOverlay({ type: 'REWARD_UNLOCKED', data });
   });
 
   // 成就解锁事件 → 通知 overlay
   achievementSystem.on('onAchievementUnlocked', async (data) => {
     console.log('[ChildType] Achievement unlocked!', data);
-    await broadcastToOverlay({ type: 'ACHIEVEMENT_UNLOCKED', data });
+    await broadcastToOverlay({ type: 'REWARD_UNLOCKED', data });
+  });
+
+  // 指法阶段推进 → 通知 overlay + 检查阶段成就
+  fingerPhaseSystem.on('onPhaseAdvance', async (data) => {
+    console.log('[ChildType] Finger phase advanced!', data);
+    await broadcastToOverlay({ type: 'PHASE_ADVANCE', data });
+    await achievementSystem.checkPhaseAchievements(data.toPhase);
   });
 }
 
@@ -84,6 +94,50 @@ async function handleMessage(message, sender) {
     case 'resetSettings':
       await settingsManager.resetToDefaults();
       return { success: true };
+
+    case 'recordKey': {
+      const { key, finger, correct, responseMs } = message;
+      const normalizedKey = typeof key === 'string' ? key.toLowerCase() : key;
+      const kp = (await store.get('progress.keyProficiency')) || {};
+      const cur = kp[normalizedKey] || { attempts: 0, correct: 0, msSamples: [] };
+      cur.attempts++;
+      cur.correct += correct ? 1 : 0;
+      if (responseMs != null) {
+        cur.msSamples.push(responseMs);
+        if (cur.msSamples.length > 50) cur.msSamples.shift();
+      }
+      cur.lastAttemptAt = Date.now();
+      kp[normalizedKey] = cur;
+      await store.set('progress.keyProficiency', kp);
+
+      const layout = layouts[settingsManager._cached?.keyboardLayout] || layouts.QWERTY;
+      const aggregated = aggregateFingerStats(kp, layout.fingerMap);
+      await store.set('progress.fingerStats', aggregated);
+      return { success: true };
+    }
+
+    case 'lettersBatchStarted': {
+      // 字母模式完成一批 16 字母，记录该批次的准确率并更新模式统计
+      const prevBatch = message.prevBatch || [];
+      const prevCount = message.prevCount || 0;
+      const correct = message.correct || 0;
+      const total = message.total || 0;
+      const batchAccuracy = total > 0 ? Math.round((correct / total) * 1000) / 10 : 0;
+      const batchWpm = message.batchWpm || 0;
+
+      await store.update('progress', (current) => {
+        const modeStats = { ...current.modeStats };
+        const lettersStat = modeStats.letters || { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 };
+        lettersStat.sessions += 1;
+        // 准确率取历史加权平均
+        const oldTotal = Math.max(lettersStat.totalMinutes, 1);
+        lettersStat.accuracy = Math.round(((lettersStat.accuracy * (oldTotal - 1) + batchAccuracy) * 10) / oldTotal) / 10;
+        if (batchWpm > lettersStat.bestWPM) lettersStat.bestWPM = batchWpm;
+        modeStats.letters = lettersStat;
+        return { ...current, modeStats };
+      });
+      return { success: true };
+    }
 
     case 'getProgress':
       return await store.get('progress');
@@ -170,23 +224,25 @@ async function handleMessage(message, sender) {
       // 增加经验值（正确按键数 + 会话奖励）
       const correctKeystrokes = totalKeystrokes - errors;
       const baseExp = correctKeystrokes * 1 + 5; // EXP_PER_KEY=1, SESSION_BONUS=5
-      await levelSystem.addExperience(baseExp, 'normal');
+      await levelSystem.addExperience(baseExp, 'normal', 'session');
+
+      // 修剪过期键位熟练度数据
+      await store.update('progress.keyProficiency', kp => pruneKeyProficiency(kp || {}));
+
+      // 统一检查成就解锁（读取完整 progress）
+      await achievementSystem.checkAllUnlocks();
+
+      // 检查指法阶段推进
+      const advanced = await fingerPhaseSystem.advanceIfReady();
+      if (advanced !== null) {
+        await broadcastToOverlay({ type: 'PHASE_ADVANCE', data: { phase: advanced } });
+      }
 
       return { success: true };
     }
 
     case 'updateStats': {
       const { wpm, accuracy, streak, totalKeystrokes } = message;
-      // 实时触发成就检查
-      const stats = {
-        totalKeystrokes,
-        maxStreak: streak,
-        bestWPM: wpm
-      };
-      const unlockable = await achievementSystem.getUnlockableStats(stats);
-      for (const achievement of unlockable) {
-        await achievementSystem.unlock(achievement.id);
-      }
       return { ack: true };
     }
 
@@ -224,15 +280,17 @@ async function broadcastToOverlay(payload) {
   }
 
   try {
-    const [tab] = await chrome.tabs.query({ id: tabId });
+    const [tab] = await chrome.tabs.query({ tabId });
     if (!tab) {
       console.warn('[ChildType] broadcastToOverlay: tab not found');
       return;
     }
 
     // 先发送消息；若内容脚本尚未就绪（onMessage 未注册），重新注入后重试
-    chrome.tabs.sendMessage(tab.id, payload).catch(async (error) => {
-      console.warn('[ChildType] broadcastToOverlay: retry injection:', error.message);
+    try {
+      chrome.tabs.sendMessage(tab.id, payload);
+    } catch (sendError) {
+      console.warn('[ChildType] broadcastToOverlay: retry injection:', sendError.message);
       try {
         await chrome.scripting.executeScript({
           target: { tabId },
@@ -246,7 +304,7 @@ async function broadcastToOverlay(payload) {
       } catch (retryError) {
         console.warn('[ChildType] broadcastToOverlay: injection retry failed:', retryError.message);
       }
-    });
+    }
   } catch (error) {
     console.warn('[ChildType] Failed to broadcast to overlay:', error);
   }

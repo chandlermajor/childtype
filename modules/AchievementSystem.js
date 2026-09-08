@@ -7,6 +7,9 @@
 import store from './StorageManager.js';
 import levelSystem from './LevelSystem.js';
 
+/** 重入守卫：避免 升级→解锁成就→加经验→再升级 的无限递归 */
+let _addingExp = false;
+
 /**
  * 成就定义
  * 每个成就包含：ID、名称、描述、图标、解锁条件、经验奖励
@@ -263,6 +266,7 @@ class AchievementSystem {
       case 'level': return (stats.currentLevel || 1) >= threshold;
       case 'modesPlayed': return (stats.modesPlayed || []).length >= threshold;
       case 'consecutiveDays': return (stats.consecutiveDays || 0) >= threshold;
+      case 'fingerPhase': return (stats.fingerPhase || 0) >= threshold;
       default: return false;
     }
   }
@@ -295,8 +299,7 @@ class AchievementSystem {
 
     // 增加经验值
     if (achievement.experienceReward) {
-      const levelSystem = (await import('./LevelSystem.js')).default;
-      await levelSystem.addExperience(achievement.experienceReward, 'normal');
+      await this.addReward(achievement.experienceReward);
     }
 
     this._emit('onAchievementUnlocked', {
@@ -306,6 +309,83 @@ class AchievementSystem {
     });
 
     return { ...achievement, unlockedAt: unlockEntry.unlockedAt };
+  }
+
+  /**
+   * 解锁成就时加经验的包装方法（带重入守卫）
+   * @param {number} reward - 奖励经验值
+   * @returns {Promise<void>}
+   */
+  async addReward(reward) {
+    if (_addingExp) return;
+    _addingExp = true;
+    try {
+      await levelSystem.addExperience(reward, 'normal', 'achievement');
+    } finally {
+      _addingExp = false;
+    }
+  }
+
+  /**
+   * 读取完整 progress 并统一检查所有可解锁的成就
+   * @returns {Promise<Array>} 新解锁的成就列表
+   */
+  async checkAllUnlocks() {
+    const progress = await store.get('progress');
+    const unlockedIds = ((await store.get('achievements'))?.unlocked || []).map(u => u.id);
+    const newlyUnlocked = [];
+
+    for (const achievement of ACHIEVEMENTS) {
+      if (unlockedIds.includes(achievement.id)) continue;
+      if (this.checkCondition(achievement, progress)) {
+        const result = await this.unlock(achievement.id);
+        if (result) newlyUnlocked.push(result);
+      }
+    }
+
+    return newlyUnlocked;
+  }
+
+  /**
+   * 检查等级成就（type==='level'）
+   * @param {number} level - 当前等级
+   * @returns {Promise<Array>}
+   */
+  async checkLevelAchievements(level) {
+    const unlockedIds = ((await store.get('achievements'))?.unlocked || []).map(u => u.id);
+    const newlyUnlocked = [];
+
+    for (const achievement of ACHIEVEMENTS) {
+      if (achievement.condition.type !== 'level') continue;
+      if (unlockedIds.includes(achievement.id)) continue;
+      if (achievement.condition.threshold <= level) {
+        const result = await this.unlock(achievement.id);
+        if (result) newlyUnlocked.push(result);
+      }
+    }
+
+    return newlyUnlocked;
+  }
+
+  /**
+   * 检查指法阶段成就（type==='fingerPhase'）
+   * @param {number} phase - 已完成阶段 ID（推进后的目标阶段）
+   * @returns {Promise<Array>}
+   */
+  async checkPhaseAchievements(phase) {
+    const unlockedIds = ((await store.get('achievements'))?.unlocked || []).map(u => u.id);
+    const newlyUnlocked = [];
+
+    for (const achievement of ACHIEVEMENTS) {
+      if (achievement.condition.type !== 'fingerPhase') continue;
+      if (unlockedIds.includes(achievement.id)) continue;
+      if (achievement.condition.threshold <= phase) {
+        const result = await this.unlock(achievement.id);
+        if (result) newlyUnlocked.push(result);
+      }
+    }
+
+    return newlyUnlocked;
   }
 
   /**

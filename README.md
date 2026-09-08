@@ -73,20 +73,22 @@ childtype/
 │
 ├── modules/                      # 核心业务模块（模块化设计）
 │   ├── KeyboardView.js           # 虚拟键盘渲染与交互
-│   ├── TypingEngine.js           # 打字判定、计时、WPM 计算
 │   ├── StatsTracker.js           # 统计指标收集与展示
 │   ├── StorageManager.js         # chrome.storage.sync 封装
 │   ├── SettingsManager.js        # 用户设置管理
 │   ├── AchievementSystem.js      # 成就系统
-│   ├── SoundManager.js           # Web Audio API 音效
-│   └── LevelSystem.js            # 等级与难度系统
+│   ├── LevelSystem.js            # 等级与难度系统
+│   ├── FingerProficiency.js      # 键位/手指熟练度计算工具
+│   ├── FingerPhaseSystem.js      # 指法分阶段推进系统
+│   └── SoundManager.js           # Web Audio API 音效
 │
 ├── data/                         # 静态数据
 │   ├── words.js                  # 单词库（按难度分级）
 │   ├── sentences.js              # 句子库
 │   ├── levels.js                 # 等级定义与升级条件
 │   ├── achievements.js           # 成就定义与解锁条件
-│   └── keyboard-layouts.js       # 键盘布局数据（QWERTY, AZERTY）
+│   ├── keyboard-layouts.js       # 键盘布局数据（QWERTY, AZERTY）
+│   └── finger-phases.js          # 指法分阶段训练数据（动态键位生成）
 │
 ├── icons/                        # 扩展图标
 │   ├── icon-16.png
