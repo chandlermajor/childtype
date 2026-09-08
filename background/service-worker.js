@@ -75,6 +75,10 @@ async function handleMessage(message, sender) {
 
     case 'saveSettings':
       await settingsManager.updateSettings(message.settings);
+      // 主题变更时同步到 overlay
+      if (message.settings.theme) {
+        await broadcastToOverlay({ type: 'THEME_CHANGE', data: { theme: message.settings.theme } });
+      }
       return { success: true };
 
     case 'resetSettings':
@@ -90,14 +94,22 @@ async function handleMessage(message, sender) {
         progress: await achievementSystem.getProgressPercent()
       };
 
+    case 'getAchievementDefinitions':
+      return achievementSystem.getAllAchievements();
+
     case 'getLevel':
       return await levelSystem.getCurrentLevel();
 
     case 'startOverlay': {
       const { mode, difficulty } = message;
-      currentOverlayState = { active: true, tabId: sender.tab?.id, mode, difficulty };
-      await injectOverlay(sender.tab?.id);
-      await broadcastToOverlay({ type: 'START_SESSION', data: { mode, difficulty } });
+      // 打开新标签页显示 overlay 页面
+      const tab = await chrome.tabs.create({ url: chrome.runtime.getURL('overlay/overlay.html') });
+      currentOverlayState = { active: true, tabId: tab.id, mode, difficulty };
+      console.log('[ChildType] startOverlay opened new tab:', tab.id, 'mode:', mode);
+      // 延迟广播，确保页面加载完成
+      setTimeout(async () => {
+        await broadcastToOverlay({ type: 'START_SESSION', data: { mode, difficulty } });
+      }, 300);
       return { success: true };
     }
 
@@ -115,24 +127,50 @@ async function handleMessage(message, sender) {
       const minutes = Math.round((duration / 60) * 10) / 10;
 
       // 更新进度
-      await store.update('progress', (current) => {
+      const progressUpdate = await store.update('progress', (current) => {
         const modeStats = { ...current.modeStats };
         const modeStat = modeStats[mode] || { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 };
         modeStat.sessions += 1;
         modeStat.totalMinutes += minutes;
         modeStats[mode] = modeStat;
 
-        const newBestWPM = Math.max(current.bestWPM, 0); // WPM 在 sessionEnd 时已计算
+        // 跟踪已练习的模式
+        const modesPlayed = current.modesPlayed || [];
+        if (!modesPlayed.includes(mode)) {
+          modesPlayed.push(mode);
+        }
+
+        // 跟踪连续练习天数
+        const today = new Date().toISOString().split('T')[0];
+        const lastDate = current.lastPracticeDate;
+        let consecutiveDays = current.consecutiveDays || 0;
+        if (lastDate !== today) {
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toISOString().split('T')[0];
+          if (lastDate === yesterdayStr) {
+            consecutiveDays += 1;
+          } else if (lastDate !== today) {
+            consecutiveDays = 1;
+          }
+        }
 
         return {
           ...current,
           modeStats,
-          bestWPM: newBestWPM,
+          modesPlayed,
+          lastPracticeDate: today,
+          consecutiveDays,
           totalKeystrokes: (current.totalKeystrokes || 0) + totalKeystrokes,
           totalPracticeMinutes: (current.totalPracticeMinutes || 0) + minutes,
           dailyHistory: addToDailyHistory(current.dailyHistory || [], minutes, accuracy)
         };
       });
+
+      // 增加经验值（正确按键数 + 会话奖励）
+      const correctKeystrokes = totalKeystrokes - errors;
+      const baseExp = correctKeystrokes * 1 + 5; // EXP_PER_KEY=1, SESSION_BONUS=5
+      await levelSystem.addExperience(baseExp, 'normal');
 
       return { success: true };
     }
@@ -179,13 +217,36 @@ async function toggleOverlay() {
  * @param {Object} [data] - 消息数据
  */
 async function broadcastToOverlay(payload) {
-  if (!currentOverlayState.tabId) return;
+  const tabId = currentOverlayState.tabId;
+  if (!tabId) {
+    console.warn('[ChildType] broadcastToOverlay: no target tab');
+    return;
+  }
 
   try {
-    const [tab] = await chrome.tabs.query({ id: currentOverlayState.tabId });
-    if (tab) {
-      chrome.tabs.sendMessage(tab.id, payload);
+    const [tab] = await chrome.tabs.query({ id: tabId });
+    if (!tab) {
+      console.warn('[ChildType] broadcastToOverlay: tab not found');
+      return;
     }
+
+    // 先发送消息；若内容脚本尚未就绪（onMessage 未注册），重新注入后重试
+    chrome.tabs.sendMessage(tab.id, payload).catch(async (error) => {
+      console.warn('[ChildType] broadcastToOverlay: retry injection:', error.message);
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          files: ['overlay/overlay.js']
+        });
+        // 重新获取 tab 对象，确保消息发送到正确的标签页
+        const freshTab = await chrome.tabs.get(tabId);
+        if (freshTab) {
+          chrome.tabs.sendMessage(freshTab.id, payload);
+        }
+      } catch (retryError) {
+        console.warn('[ChildType] broadcastToOverlay: injection retry failed:', retryError.message);
+      }
+    });
   } catch (error) {
     console.warn('[ChildType] Failed to broadcast to overlay:', error);
   }
@@ -215,7 +276,14 @@ async function sendMessageToTab(type, data) {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab) {
-      chrome.tabs.sendMessage(tab.id, { type, data });
+      // 将 camelCase 消息类型映射为 overlay.js 中的期望类型
+      const typeMap = {
+        'startOverlay': 'START_SESSION',
+        'stopOverlay': 'STOP_SESSION',
+        'pauseSession': 'pauseSession'
+      };
+      const messageType = typeMap[type] || type.toUpperCase();
+      chrome.tabs.sendMessage(tab.id, { type: messageType, data });
     }
   } catch (error) {
     console.warn('[ChildType] Failed to send to tab:', error);

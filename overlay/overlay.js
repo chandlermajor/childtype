@@ -4,6 +4,19 @@
  * @module overlay/overlay
  */
 
+// ===== Sound Manager (dynamic import for content script) =====
+let soundManager = null;
+
+async function initSoundManager() {
+  try {
+    const { default: SoundManager } = await import('../modules/SoundManager.js');
+    soundManager = new SoundManager();
+    soundManager.init();
+  } catch (error) {
+    console.warn('[Overlay] SoundManager not available:', error);
+  }
+}
+
 // ===== State =====
 let state = {
   active: false,
@@ -57,7 +70,6 @@ const notification = document.getElementById('notification');
 const notificationIcon = document.getElementById('notification-icon');
 const notificationText = document.getElementById('notification-text');
 const keyboardContainer = document.getElementById('keyboard-container');
-const allKeys = document.querySelectorAll('.overlay__key');
 
 // ===== Create overlay container =====
 function createOverlayContainer() {
@@ -100,7 +112,7 @@ function createOverlayContainer() {
     </div>
     <div class="overlay__keyboard" id="keyboard-container">
       <div class="overlay__keyboard-row" id="row-0">
-        <div class="overlay__key" data-key="`" data-finger="left-pinky">`</div>
+        <div class="overlay__key" data-key="\`" data-finger="left-pinky">\`</div>
         <div class="overlay__key" data-key="1" data-finger="left-pinky">1</div>
         <div class="overlay__key" data-key="2" data-finger="left-ring">2</div>
         <div class="overlay__key" data-key="3" data-finger="left-middle">3</div>
@@ -174,7 +186,18 @@ function createOverlayContainer() {
 
 // ===== Initialize =====
 function init() {
-  createOverlayContainer();
+  // Check if we're running on the overlay.html page itself
+  const isOverlayPage = window.location.pathname.endsWith('overlay.html');
+  
+  if (isOverlayPage) {
+    // On overlay.html page - use existing elements
+    // Elements are already in the DOM from overlay.html
+  } else {
+    // Being injected into another page - create overlay container
+    createOverlayContainer();
+  }
+  
+  initSoundManager();
 
   // 监听来自 Service Worker 的消息
   chrome.runtime.onMessage.addListener(handleMessage);
@@ -192,7 +215,9 @@ function init() {
   });
 
   // 默认显示开始提示
-  targetHint.textContent = '选择练习模式开始打字';
+  if (targetHint) {
+    targetHint.textContent = '选择练习模式开始打字';
+  }
 }
 
 /**
@@ -216,6 +241,9 @@ function handleMessage(message) {
     case 'ACHIEVEMENT_UNLOCKED':
       showNotification('🏆', `成就解锁: ${message.data.achievement.name}`);
       break;
+    case 'THEME_CHANGE':
+      document.documentElement.dataset.theme = message.data.theme;
+      break;
   }
 }
 
@@ -226,6 +254,11 @@ function handleMessage(message) {
  */
 function startSession(mode, difficulty) {
   state.active = true;
+  
+  // 确保 overlay 可见（移除 hidden 类）
+  const overlay = document.getElementById('childtype-overlay');
+  if (overlay) overlay.classList.remove('hidden');
+  
   state.mode = mode;
   state.difficulty = difficulty;
   state.startTime = null;
@@ -374,10 +407,10 @@ function handleKeyDown(e) {
 
   const key = e.key;
 
-  // 忽略功能键
+  // 忽略功能键（空格在单词/句子模式下有效）
   if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab', 'Escape'].includes(key)) {
-    // 特殊处理：Space 在自由模式下算有效按键
-    if (key === ' ' && state.mode === 'free') {
+    // 特殊处理：Space 在单词/句子模式下也算有效按键
+    if (key === ' ' && ['words', 'sentences'].includes(state.mode)) {
       processKey(' ', key);
     }
     return;
@@ -409,7 +442,7 @@ function handleKeyDown(e) {
  */
 function processKey(pressedKey, code) {
   const expected = typeof state.target === 'object'
-    ? state.target.text[state._wordIndex || state._charIndex]
+    ? state.target.text[state.mode === 'sentences' ? (state._charIndex || 0) : (state._wordIndex || 0)]
     : state.target;
 
   if (!expected) {
@@ -422,15 +455,16 @@ function processKey(pressedKey, code) {
   state.totalKeystrokes++;
   state.lastKeyTime = Date.now();
 
-  if (isCorrect) {
-    state.correctKeystrokes++;
-    state.streak++;
-    if (state.streak > state.maxStreak) state.maxStreak = state.streak;
+if (isCorrect) {
+     state.correctKeystrokes++;
+     state.streak++;
+     if (state.streak > state.maxStreak) state.maxStreak = state.streak;
 
-    animateKey(pressedKey, true);
-    highlightKey(pressedKey, 'correct');
+     animateKey(pressedKey, true);
+     highlightKey(pressedKey, 'correct');
+     if (soundManager) soundManager.playCorrect();
 
-    // 移动到下一个
+     // 移动到下一个
     if (state.mode === 'letters') {
       setNextTarget();
     } else if (state.mode === 'words') {
@@ -452,14 +486,15 @@ function processKey(pressedKey, code) {
         highlightNextKey();
       }
     }
-  } else {
-    state.errors++;
-    state.streak = 0;
+} else {
+     state.errors++;
+     state.streak = 0;
 
-    animateKey(pressedKey, false);
-    highlightKey(pressedKey, 'wrong');
+     animateKey(pressedKey, false);
+     highlightKey(pressedKey, 'wrong');
+     if (soundManager) soundManager.playWrong();
 
-    // 错误时在目标显示提示
+     // 错误时在目标显示提示
     targetLetter.className = 'overlay__target-letter wrong';
     setTimeout(() => {
       targetLetter.className = 'overlay__target-letter';
@@ -593,13 +628,14 @@ function getRandomSentence() {
  * 高亮下一个目标键
  */
 function highlightNextKey() {
-  // 清除所有 target 高亮
+  // 清除所有 target 高亮 - 动态获取键元素
+  const allKeys = document.querySelectorAll('.overlay__key');
   allKeys.forEach(key => key.classList.remove('overlay__key--target'));
 
   if (!state.target) return;
 
   const keyChar = typeof state.target === 'object'
-    ? state.target.text[state._wordIndex || state._charIndex]
+    ? state.target.text[state.mode === 'sentences' ? (state._charIndex || 0) : (state._wordIndex || 0)]
     : state.target;
 
   if (!keyChar) return;

@@ -261,6 +261,8 @@ class AchievementSystem {
       case 'perfectSession': return (stats.perfectStreak || 0) >= threshold;
       case 'totalMinutes': return (stats.totalPracticeMinutes || 0) >= threshold;
       case 'level': return (stats.currentLevel || 1) >= threshold;
+      case 'modesPlayed': return (stats.modesPlayed || []).length >= threshold;
+      case 'consecutiveDays': return (stats.consecutiveDays || 0) >= threshold;
       default: return false;
     }
   }
@@ -290,6 +292,12 @@ class AchievementSystem {
     data.locked = (data.locked || []).filter(id => id !== achievementId);
 
     await store.set('achievements', data);
+
+    // 增加经验值
+    if (achievement.experienceReward) {
+      const levelSystem = (await import('./LevelSystem.js')).default;
+      await levelSystem.addExperience(achievement.experienceReward, 'normal');
+    }
 
     this._emit('onAchievementUnlocked', {
       achievement,

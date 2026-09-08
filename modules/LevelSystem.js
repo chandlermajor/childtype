@@ -51,7 +51,10 @@ class LevelSystem {
   async getCurrentLevel() {
     const progress = await store.get('progress');
     const exp = progress.experience;
-    return this.getLevelAtExp(exp);
+    return {
+      ...this.getLevelAtExp(exp),
+      experience: exp
+    };
   }
 
   /**

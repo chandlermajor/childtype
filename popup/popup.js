@@ -67,6 +67,8 @@ async function loadSettings() {
       settingFontSize.value = settings.fontSize || 16;
       settingSound.checked = settings.soundEnabled !== false;
       settingDifficulty.value = settings.difficulty || 'normal';
+      // 应用主题到 DOM
+      document.documentElement.dataset.theme = settings.theme || 'light';
     }
   } catch (error) {
     console.error('[Popup] Failed to load settings:', error);
@@ -108,7 +110,8 @@ async function loadLevel() {
       levelName.textContent = level.name || '未知';
       levelSubtitle.textContent = `Lv.${level.level}`;
       progressFill.style.width = `${level.progress || 0}%`;
-      progressCurrent.textContent = level.expRequired || 0;
+      // progressCurrent 显示当前实际经验值，progressNext 显示下一级所需经验
+      progressCurrent.textContent = level.experience || 0;
       progressNext.textContent = level.nextLevel ? level.nextLevel.expRequired : 'MAX';
     }
   } catch (error) {
@@ -123,40 +126,18 @@ async function loadAchievements() {
   try {
     const data = await chrome.runtime.sendMessage({ action: 'getAchievements' });
     if (data) {
-      achievementProgress.textContent = `${data.unlocked.length}/22`;
+      achievementProgress.textContent = `${data.unlocked.length}/20`;
 
       // 清空网格
       achievementGrid.innerHTML = '';
 
-      // 成就定义（与 AchievementSystem 保持一致）
-      const allAchievements = [
-        { id: 'first_key', name: '第一步', icon: '🎯' },
-        { id: 'ten_keys', name: '初露锋芒', icon: '🔑' },
-        { id: 'hundred_keys', name: '熟能生巧', icon: '🔨' },
-        { id: 'thousand_keys', name: '千锤百炼', icon: '⚒️' },
-        { id: 'streak_5', name: '小有连续', icon: '🔥' },
-        { id: 'streak_10', name: '连击新手', icon: '🔥' },
-        { id: 'streak_25', name: '连击达人', icon: '🔥' },
-        { id: 'streak_50', name: '连击大师', icon: '🔥' },
-        { id: 'wpm_10', name: '慢慢来', icon: '🐢' },
-        { id: 'wpm_20', name: '渐入佳境', icon: '🚶' },
-        { id: 'wpm_30', name: '速度入门', icon: '⚡' },
-        { id: 'wpm_40', name: '疾速如风', icon: '💨' },
-        { id: 'wpm_50', name: '风驰电掣', icon: '⚡' },
-        { id: 'wpm_60', name: '键盘闪电', icon: '🌩️' },
-        { id: 'perfect_20', name: '完美起步', icon: '💯' },
-        { id: 'minute_practice', name: '一分钟', icon: '⏱️' },
-        { id: 'ten_minutes', name: '十分钟', icon: '⏲️' },
-        { id: 'hour_practice', name: '一小时', icon: '🕐' },
-        { id: 'level_5', name: '小有成就', icon: '📋' },
-        { id: 'level_10', name: '登峰造极', icon: '🏅' },
-        { id: 'all_modes', name: '全面发展', icon: '🎮' },
-        { id: 'seven_days', name: '一周坚持', icon: '📅' }
-      ];
+      // 从 AchievementSystem 获取成就定义（避免重复定义）
+      const achievementDefs = await chrome.runtime.sendMessage({ action: 'getAchievementDefinitions' });
+      if (!achievementDefs) return;
 
       const unlockedIds = (data.unlocked || []).map(u => u.id);
 
-      allAchievements.forEach(achievement => {
+      achievementDefs.forEach(achievement => {
         const isUnlocked = unlockedIds.includes(achievement.id);
         const item = document.createElement('div');
         item.className = `popup__achievement-item ${isUnlocked ? 'popup__achievement-item--unlocked' : 'popup__achievement-item--locked'}`;
@@ -183,17 +164,27 @@ modeButtons.forEach(btn => {
 
     // 发送消息启动 overlay
     const mode = btn.dataset.mode;
-    const settings = await chrome.runtime.sendMessage({ action: 'getSettings' });
-    const difficulty = settings?.difficulty || 'normal';
+    let difficulty = 'normal';
+    try {
+      const settings = await chrome.runtime.sendMessage({ action: 'getSettings' });
+      difficulty = settings?.difficulty || 'normal';
+    } catch (error) {
+      console.warn('[Popup] Failed to fetch settings, using default:', error);
+    }
 
-    await chrome.runtime.sendMessage({
+    const overlayResponse = await chrome.runtime.sendMessage({
       action: 'startOverlay',
       mode,
       difficulty
     });
 
-    // 关闭窗口
-    window.close();
+    // 确保消息已送达，再关闭弹窗（避免 MV3 上下文过早销毁导致消息丢失）
+    if (overlayResponse && overlayResponse.error) {
+      console.error('[Popup] startOverlay failed:', overlayResponse.error);
+    }
+
+    // 延迟关闭，给 SW 留下处理时间
+    setTimeout(() => window.close(), 100);
   });
 });
 

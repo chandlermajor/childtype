@@ -28,6 +28,9 @@ const DEFAULTS = {
       free: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
       finger: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 }
     },
+    modesPlayed: [],
+    lastPracticeDate: null,
+    consecutiveDays: 0,
     dailyHistory: []
   },
   achievements: {
