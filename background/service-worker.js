@@ -175,18 +175,38 @@ async function handleMessage(message, sender) {
 
     case 'sessionEnd': {
       const { duration, totalKeystrokes, errors, mode } = message;
+      const correctKeystrokes = totalKeystrokes - errors;
       const accuracy = totalKeystrokes > 0
-        ? Math.round(((totalKeystrokes - errors) / totalKeystrokes) * 1000) / 10
+        ? Math.round((correctKeystrokes / totalKeystrokes) * 1000) / 10
         : 0;
       const minutes = Math.round((duration / 60) * 10) / 10;
+      const wpm = duration > 0 && correctKeystrokes >= 5
+        ? Math.round((correctKeystrokes / 5) / (duration / 60) * 10) / 10
+        : 0;
 
       // 更新进度
       const progressUpdate = await store.update('progress', (current) => {
         const modeStats = { ...current.modeStats };
-        const modeStat = modeStats[mode] || { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 };
-        modeStat.sessions += 1;
-        modeStat.totalMinutes += minutes;
-        modeStats[mode] = modeStat;
+
+        if (mode === 'letters') {
+          // 字母模式：sessions/accuracy/bestWPM 由 lettersBatchStarted 按批更新
+          // 此处只累加总时长
+          const lettersStat = modeStats.letters || { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 };
+          lettersStat.totalMinutes += minutes;
+          modeStats.letters = lettersStat;
+        } else {
+          const modeStat = modeStats[mode] || { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 };
+          const oldTotalMinutes = modeStat.totalMinutes || 0;
+          modeStat.sessions += 1;
+          modeStat.totalMinutes += minutes;
+          if (wpm > modeStat.bestWPM) modeStat.bestWPM = wpm;
+          if (oldTotalMinutes > 0 && minutes > 0) {
+            modeStat.accuracy = Math.round(((modeStat.accuracy * oldTotalMinutes + accuracy * minutes) * 10) / (oldTotalMinutes + minutes)) / 10;
+          } else {
+            modeStat.accuracy = accuracy;
+          }
+          modeStats[mode] = modeStat;
+        }
 
         // 跟踪已练习的模式
         const modesPlayed = current.modesPlayed || [];

@@ -31,6 +31,12 @@ let state = {
   lastKeyTime: null,
   totalKeystrokes: 0,
   correctKeystrokes: 0,
+  batchTotalKeystrokes: 0,
+  batchCorrectKeystrokes: 0,
+  batchStartTime: null,
+  batchPausedTime: 0,
+  batchPauseStartedAt: null,
+  completedBatchCount: 0,
   streak: 0,
   maxStreak: 0,
   errors: 0,
@@ -64,6 +70,7 @@ let lettersBatch = [];   // 当前批次的字母数组（共 16 个）
 let lettersBatchIndex = 0;  // 当前进度
 let lettersMasterBatch = []; // 主批次：保持同一组字母，只打乱顺序
 let lettersBatchNeedsRefresh = false; // 标记批次是否已完成，需要刷新
+let lettersBatchSettled = false; // 防止重复结算批次统计
 
 // ===== Finger / Phase helpers =====
 const PROGRESS_LS_KEY = 'childtype-progress';
@@ -388,6 +395,11 @@ async function startSession(mode, difficulty) {
   state.lastKeyTime = null;
   state.totalKeystrokes = 0;
   state.correctKeystrokes = 0;
+  state.batchTotalKeystrokes = 0;
+  state.batchCorrectKeystrokes = 0;
+  state.batchStartTime = null;
+  state.batchPausedTime = 0;
+  state.batchPauseStartedAt = null;
   state.streak = 0;
   state.maxStreak = 0;
   state.errors = 0;
