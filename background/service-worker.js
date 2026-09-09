@@ -280,7 +280,7 @@ async function broadcastToOverlay(payload) {
   }
 
   try {
-    const [tab] = await chrome.tabs.query({ tabId });
+    const tab = await chrome.tabs.get(tabId);
     if (!tab) {
       console.warn('[ChildType] broadcastToOverlay: tab not found');
       return;

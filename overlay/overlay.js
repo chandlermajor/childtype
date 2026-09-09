@@ -63,6 +63,7 @@ const LETTERS_PER_BATCH = 16;
 let lettersBatch = [];   // 当前批次的字母数组（共 16 个）
 let lettersBatchIndex = 0;  // 当前进度
 let lettersMasterBatch = []; // 主批次：保持同一组字母，只打乱顺序
+let lettersBatchNeedsRefresh = false; // 标记批次是否已完成，需要刷新
 
 // ===== Finger / Phase helpers =====
 const PROGRESS_LS_KEY = 'childtype-progress';
@@ -337,7 +338,7 @@ async function handleMessage(message) {
       // Store the mode so it's available even if keys are pressed before session starts
       state.mode = message.data.mode || 'letters';
       state.difficulty = message.data.difficulty || 'normal';
-      startSession(message.data.mode, message.data.difficulty);
+      await startSession(message.data.mode, message.data.difficulty);
       break;
     case 'STOP_SESSION':
       stopOverlay();
@@ -372,7 +373,7 @@ async function handleMessage(message) {
  * @param {string} mode - 练习模式
  * @param {string} difficulty - 难度
  */
-function startSession(mode, difficulty) {
+async function startSession(mode, difficulty) {
   state.active = true;
   
   // 确保 overlay 可见（移除 hidden 类）
@@ -397,6 +398,7 @@ function startSession(mode, difficulty) {
   lettersBatch = [];
   lettersBatchIndex = 0;
   lettersMasterBatch = [];
+  lettersBatchNeedsRefresh = false;
   generateBatch();
 
   // 更新 UI
@@ -562,11 +564,9 @@ function handleKeyDown(e) {
     // The service worker sends START_SESSION, but we also allow keypress to start it
     // as a fallback in case the message was delayed or lost
     if (state.mode) {
-      try {
-        startSession(state.mode, state.difficulty);
-      } catch (err) {
+      startSession(state.mode, state.difficulty).catch(err => {
         console.error('[Overlay] Failed to start session on keypress:', err);
-      }
+      });
     }
     return;
   }
@@ -656,10 +656,11 @@ async function processKey(pressedKey, code) {
       if (soundManager) soundManager.playCorrect();
 
       // 移动到下一个
-     if (state.mode === 'letters') {
-       state.batchIndex++;
-       state.target = state.batchTarget[state.batchIndex] || null;
+      if (state.mode === 'letters') {
+        state.batchIndex++;
+        state.target = state.batchTarget[state.batchIndex] || null;
         if (state.batchIndex >= state.batchTarget.length) {
+          lettersBatchNeedsRefresh = true;
           await setNextTarget();
         } else {
           updateTargetDisplay();
@@ -794,6 +795,7 @@ function generateBatch() {
   }
   lettersBatch = [...lettersMasterBatch].sort(() => Math.random() - 0.5);
   lettersBatchIndex = 0;
+  lettersBatchNeedsRefresh = false;
   return lettersBatch;
 }
 
@@ -802,7 +804,7 @@ function generateBatch() {
  * @returns {string[]}
  */
 function getBatchLetters() {
-  if (lettersBatch.length === 0 || lettersBatchIndex >= lettersBatch.length) {
+  if (lettersBatch.length === 0 || lettersBatchNeedsRefresh) {
     if (lettersBatch.length > 0) {
       chrome.runtime.sendMessage({
         action: 'lettersBatchStarted',
