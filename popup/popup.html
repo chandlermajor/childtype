@@ -24,10 +24,6 @@
         <span class="popup__mode-icon">🔤</span>
         <span class="popup__mode-label">字母</span>
       </button>
-      <button class="popup__mode-btn" data-mode="ordered" title="顺序字母">
-        <span class="popup__mode-icon">🔤</span>
-        <span class="popup__mode-label">顺序</span>
-      </button>
       <button class="popup__mode-btn" data-mode="words" title="单词练习">
         <span class="popup__mode-icon">📖</span>
         <span class="popup__mode-label">单词</span>
@@ -66,12 +62,6 @@
     </div>
   </section>
 
-  <!-- Daily Challenge -->
-  <section class="popup__section popup__daily-challenge" id="daily-challenge-section">
-    <h2 class="popup__section-title">今日挑战</h2>
-    <div class="popup__daily-challenge-info" id="daily-challenge-info">加载中...</div>
-  </section>
-
   <!-- Level Progress -->
   <section class="popup__section popup__level">
     <h2 class="popup__section-title">进度</h2>
@@ -90,10 +80,17 @@
     </div>
   </section>
 
+  <!-- Achievements -->
+  <section class="popup__section popup__achievements-main" id="achievements-main-section">
+    <h2 class="popup__section-title">成就 <span id="achievement-progress-main">0/20</span></h2>
+    <div class="popup__achievement-grid" id="achievement-grid-main">
+      <!-- Dynamically populated -->
+    </div>
+  </section>
+
   <!-- Actions -->
   <section class="popup__section popup__actions">
     <button class="popup__action-btn" id="btn-settings">⚙️ 设置</button>
-    <button class="popup__action-btn" id="btn-achievements">🏆 成就</button>
     <button class="popup__action-btn popup__action-btn--link" id="btn-privacy">🔒 隐私政策</button>
   </section>
 

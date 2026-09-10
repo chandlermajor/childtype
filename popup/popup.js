@@ -20,7 +20,7 @@ const settingsPanel = document.getElementById('settings-panel');
 const achievementsPanel = document.getElementById('achievements-panel');
 const achievementGrid = document.getElementById('achievement-grid');
 const achievementProgress = document.getElementById('achievement-progress');
-const dailyChallengeInfo = document.getElementById('daily-challenge-info');
+
 
 // Setting elements
 const settingTheme = document.getElementById('setting-theme');
@@ -46,9 +46,6 @@ async function init() {
 
   // 加载等级
   await loadLevel();
-
-  // 加载每日挑战
-  await loadDailyChallenge();
 
   // 默认字体大小选项
   const fontSizes = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48];

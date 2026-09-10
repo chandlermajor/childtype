@@ -22,6 +22,9 @@ let state = {
   active: false,
   mode: 'letters',
   difficulty: 'normal',
+  letterPhase: 0,
+  letterPhaseName: '',
+  letterBatchPassCount: 0,
   target: null,
   batchTarget: [],
   batchIndex: 0,
@@ -146,6 +149,8 @@ let overlayWpm = null;
 let overlayAccuracy = null;
 let overlayStreak = null;
 let overlayTimer = null;
+let overlayPhaseLabel = null;
+let difficultySwitch = null;
 let btnPause = null;
 let btnClose = null;
 let notification = null;
@@ -163,6 +168,12 @@ function createOverlayContainer() {
   container.innerHTML = `
     <div class="overlay__topbar">
       <div class="overlay__mode-label" id="overlay-mode-label">字母练习</div>
+      <div class="overlay__phase" id="overlay-phase-label">阶段 1/8 · 基准键</div>
+      <div class="overlay__difficulty" id="overlay-difficulty-switch">
+        <button class="overlay__diff-btn" data-diff="easy">简单</button>
+        <button class="overlay__diff-btn overlay__diff-btn--active" data-diff="normal">普通</button>
+        <button class="overlay__diff-btn" data-diff="hard">困难</button>
+      </div>
       <div class="overlay__stats">
         <div class="overlay__stat">
           <span class="overlay__stat-value" id="overlay-wpm">0</span>
@@ -294,6 +305,8 @@ async function init() {
   overlayAccuracy = document.getElementById('overlay-accuracy');
   overlayStreak = document.getElementById('overlay-streak');
   overlayTimer = document.getElementById('overlay-timer');
+  overlayPhaseLabel = document.getElementById('overlay-phase-label');
+  difficultySwitch = document.getElementById('overlay-difficulty-switch');
   btnPause = document.getElementById('btn-pause');
   btnClose = document.getElementById('btn-close');
   notification = document.getElementById('notification');
@@ -312,6 +325,16 @@ async function init() {
   // 按钮事件
   if (btnClose) btnClose.addEventListener('click', stopOverlay);
   if (btnPause) btnPause.addEventListener('click', togglePause);
+
+  // 难度切换按钮
+  if (difficultySwitch) {
+    const diffBtns = difficultySwitch.querySelectorAll('.overlay__diff-btn');
+    diffBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        setDifficulty(btn.dataset.diff);
+      });
+    });
+  }
 
   // 快捷键
   document.addEventListener('keydown', (e) => {
@@ -347,6 +370,12 @@ async function handleMessage(message) {
       // Store the mode so it's available even if keys are pressed before session starts
       state.mode = message.data.mode || 'letters';
       state.difficulty = message.data.difficulty || 'normal';
+      state.letterPhase = message.data.letterPhase || 0;
+      if (message.data.letterPhase) {
+        const letterPhases = await import('../data/letter-phases.js');
+        const ph = letterPhases.getPhase(state.letterPhase);
+        if (ph) state.letterPhaseName = ph.name;
+      }
       await startSession(message.data.mode, message.data.difficulty);
       break;
     case 'STOP_SESSION':
@@ -388,6 +417,32 @@ async function handleMessage(message) {
 }
 
 /**
+ * 设置难度并刷新 UI
+ * @param {string} diff - easy/normal/hard
+ */
+function setDifficulty(diff) {
+  if (!['easy', 'normal', 'hard'].includes(diff)) return;
+  state.difficulty = diff;
+  if (difficultySwitch) {
+    const diffBtns = difficultySwitch.querySelectorAll('.overlay__diff-btn');
+    diffBtns.forEach(btn => {
+      btn.classList.toggle('overlay__diff-btn--active', btn.dataset.diff === diff);
+    });
+  }
+  updatePhaseLabel();
+  console.log('[Overlay] Difficulty set to:', diff);
+}
+
+/**
+ * 更新顶部阶段 + 难度标签
+ */
+function updatePhaseLabel() {
+  if (overlayModeLabel) {
+    overlayModeLabel.textContent = `阶段 ${state.letterPhase + 1}/8 · ${state.letterPhaseName}`;
+  }
+}
+
+/**
  * 开始练习会话
  * @param {string} mode - 练习模式
  * @param {string} difficulty - 难度
@@ -407,6 +462,9 @@ async function startSession(mode, difficulty) {
   
   state.mode = mode;
   state.difficulty = difficulty;
+  state.letterPhase = 0;
+  state.letterPhaseName = '基准键';
+  state.letterBatchPassCount = 0;
   state.startTime = null;
   state.paused = false;
   state.pauseTime = 0;
@@ -433,6 +491,7 @@ async function startSession(mode, difficulty) {
 
   // 更新 UI
   overlayModeLabel.textContent = getModeLabel(mode);
+  updatePhaseLabel();
   targetLetter.textContent = '准备开始...';
   targetLetter.className = 'overlay__target-letter';
   targetHint.textContent = '开始打字练习';
@@ -456,7 +515,7 @@ async function startSession(mode, difficulty) {
 /**
  * 停止 overlay
  */
-function stopOverlay() {
+async function stopOverlay() {
   state.active = false;
   stopTimer();
 
@@ -474,6 +533,17 @@ function stopOverlay() {
       streak: state.streak,
       maxStreak: state.maxStreak
     });
+
+    // 保存字母练习阶段进度
+    try {
+      const progress = await chrome.storage.local.get([PROGRESS_LS_KEY]);
+      const data = progress[PROGRESS_LS_KEY] || {};
+      data.letterPhase = state.letterPhase;
+      data.letterPhaseName = state.letterPhaseName;
+      await chrome.storage.local.set({ [PROGRESS_LS_KEY]: data });
+    } catch (err) {
+      console.error('[Overlay] Failed to save letter phase progress:', err);
+    }
   }
 
   // 隐藏 overlay
@@ -508,7 +578,7 @@ function togglePause() {
 async function setNextTarget() {
   switch (state.mode) {
     case 'letters':
-      state.batchTarget = getBatchLetters();
+      state.batchTarget = await getBatchLetters();
       state.batchIndex = 0;
       state.target = state.batchTarget[0] || null;
       break;
@@ -838,16 +908,25 @@ function getModeLabel(mode) {
 }
 
 /**
- * 生成一个新的字母批次（16 个字母）
- * 如果已有主批次，则打乱主批次的顺序；否则生成新的主批次
+ * 生成一个新的字母批次（按当前阶段）
+ * 使用 letter-phases.js 按「键位范围 + 组合规则」双递进生成
  * @returns {string[]}
  */
-function generateBatch() {
-  if (lettersMasterBatch.length === 0) {
-    const shuffled = [...LETTERS].sort(() => Math.random() - 0.5);
-    lettersMasterBatch = shuffled.slice(0, LETTERS_PER_BATCH);
-  }
-  lettersBatch = [...lettersMasterBatch].sort(() => Math.random() - 0.5);
+async function generateBatch() {
+  const phaseId = state.letterPhase;
+
+  const layoutData = (await import('../data/keyboard-layouts.js')).default;
+  const settings = await chrome.storage.local.get(['settings']);
+  const layoutName = (settings.settings && settings.settings.keyboardLayout) || 'QWERTY';
+  const layoutObj = layoutData[layoutName] || layoutData.QWERTY;
+
+  const letterPhases = await import('../data/letter-phases.js');
+  const phase = letterPhases.getPhase(phaseId);
+  const batchSize = phase ? phase.batchSize : LETTERS_PER_BATCH;
+
+  lettersBatch = letterPhases.generateBatchKeys(
+    phaseId, layoutName, batchSize
+  );
   lettersBatchIndex = 0;
   lettersBatchNeedsRefresh = false;
   state.batchStartTime = Date.now();
@@ -861,7 +940,7 @@ function generateBatch() {
  * 获取一整批字母用于一次性展示
  * @returns {string[]}
  */
-function getBatchLetters() {
+async function getBatchLetters() {
   if (lettersBatch.length === 0 || lettersBatchNeedsRefresh) {
     if (lettersBatch.length > 0) {
       const batchDurationSec = state.batchStartTime
@@ -879,6 +958,9 @@ function getBatchLetters() {
         ? Math.round((batchCorrect / 5) / (batchDurationSec / 60) * 10) / 10
         : 0;
 
+      // 阶段完成自动升难度：准确率 + WPM 双达标
+      await checkPhaseCompletion(batchAccuracy, batchWpm);
+
       chrome.runtime.sendMessage({
         action: 'lettersBatchStarted',
         batchIndex: lettersBatchIndex,
@@ -894,6 +976,92 @@ function getBatchLetters() {
     return generateBatch();
   }
   return lettersBatch;
+}
+
+/**
+ * 检查阶段是否达标，达标则自动升难度或进入下一阶段
+ * @param {number} accuracy 批次准确率 (0-100)
+ * @param {number} wpm 批次 WPM
+ */
+async function checkPhaseCompletion(accuracy, wpm) {
+  const letterPhases = await import('../data/letter-phases.js');
+  const phase = letterPhases.getPhase(state.letterPhase);
+  if (!phase) return;
+
+  const wpmBaseline = state.difficulty === 'easy' ? 0.7
+    : state.difficulty === 'hard' ? 1.2
+    : 1.0;
+  const wpmTarget = (phase.require.wpm || 20) * wpmBaseline;
+
+  const passAccuracy = accuracy >= (phase.require.accuracy || 0.85) * 100;
+  const passWpm = wpm >= wpmTarget;
+
+  if (passAccuracy && passWpm) {
+    state.letterBatchPassCount++;
+    if (state.letterBatchPassCount >= (phase.require.minBatches || 3)) {
+      await advancePhase();
+    }
+  } else {
+    state.letterBatchPassCount = 0;
+  }
+}
+
+/**
+ * 推进阶段：先升难度档，难度达标后再升阶段
+ */
+async function advancePhase() {
+  const letterPhases = await import('../data/letter-phases.js');
+  const maxPhase = letterPhases.phaseCount() - 1;
+
+  let message = '';
+  let icon = '🎉';
+
+  if (state.difficulty !== 'hard' && state.letterPhase >= maxPhase) {
+    // 当前阶段已满，且难度未达最高：升难度档
+    const diffOrder = ['easy', 'normal', 'hard'];
+    const idx = diffOrder.indexOf(state.difficulty);
+    state.difficulty = diffOrder[idx + 1];
+    updateDifficultyUI();
+    message = `阶段 ${state.letterPhase + 1} 完成！进入【${state.letterPhaseName}】`;
+    showNotification(icon, message);
+    updatePhaseLabel();
+    await refreshBatchForPhase();
+  } else if (state.difficulty === 'hard' && state.letterPhase < maxPhase) {
+    // 难度已最高，进入下一阶段
+    state.letterPhase++;
+    state.letterBatchPassCount = 0;
+    const newPhase = letterPhases.getPhase(state.letterPhase);
+    state.letterPhaseName = newPhase ? newPhase.name : '';
+    message = `🎊 突破阶段 ${state.letterPhase}！进入【${state.letterPhaseName}】`;
+    showNotification(icon, message);
+    updatePhaseLabel();
+    await refreshBatchForPhase();
+  } else {
+    // 已满级：提示已完成所有阶段
+    message = `🏆 所有阶段已完成！当前【${state.letterPhaseName}】困难档`;
+    showNotification('🏆', message);
+    state.letterBatchPassCount = 0;
+  }
+}
+
+/**
+ * 为当前阶段刷新批次
+ */
+async function refreshBatchForPhase() {
+  lettersBatchNeedsRefresh = true;
+  await generateBatch();
+}
+
+/**
+ * 更新难度切换按钮 UI
+ */
+function updateDifficultyUI() {
+  if (difficultySwitch) {
+    const diffBtns = difficultySwitch.querySelectorAll('.overlay__diff-btn');
+    diffBtns.forEach(btn => {
+      btn.classList.toggle('overlay__diff-btn--active', btn.dataset.diff === state.difficulty);
+    });
+  }
 }
 
 function getRandomLetter() {
