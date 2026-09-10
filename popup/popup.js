@@ -20,6 +20,7 @@ const settingsPanel = document.getElementById('settings-panel');
 const achievementsPanel = document.getElementById('achievements-panel');
 const achievementGrid = document.getElementById('achievement-grid');
 const achievementProgress = document.getElementById('achievement-progress');
+const dailyChallengeInfo = document.getElementById('daily-challenge-info');
 
 // Setting elements
 const settingTheme = document.getElementById('setting-theme');
@@ -45,6 +46,9 @@ async function init() {
 
   // 加载等级
   await loadLevel();
+
+  // 加载每日挑战
+  await loadDailyChallenge();
 
   // 默认字体大小选项
   const fontSizes = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48];
@@ -113,13 +117,21 @@ async function loadProgress() {
 async function refreshModeStats(mode) {
   try {
     const progress = await chrome.runtime.sendMessage({ action: 'getProgress' });
-    if (!progress || !progress.modeStats || !progress.modeStats[mode]) {
-      return;
+    if (!progress) return;
+
+    if (progress.modeStats && progress.modeStats[mode]) {
+      const stat = progress.modeStats[mode];
+      statWpm.textContent = stat.bestWPM || '--';
+      statAccuracy.textContent = `${stat.accuracy}%`;
+      statTime.textContent = `${Math.round(stat.totalMinutes)}m`;
     }
-    const stat = progress.modeStats[mode];
-    statWpm.textContent = stat.bestWPM || '--';
-    statAccuracy.textContent = `${stat.accuracy}%`;
-    statTime.textContent = `${Math.round(stat.totalMinutes)}m`;
+
+    const liveStats = progress.liveStats && progress.liveStats[mode];
+    if (liveStats && (Date.now() - liveStats.lastUpdate < 30000)) {
+      statWpm.textContent = liveStats.wpm > 0 ? Math.round(liveStats.wpm) : '--';
+      statAccuracy.textContent = `${liveStats.accuracy}%`;
+      statStreak.textContent = liveStats.streak || 0;
+    }
   } catch (error) {
     console.error('[Popup] Failed to refresh mode stats:', error);
   }
@@ -142,6 +154,50 @@ async function loadLevel() {
     }
   } catch (error) {
     console.error('[Popup] Failed to load level:', error);
+  }
+}
+
+/**
+ * 加载每日挑战
+ */
+async function loadDailyChallenge() {
+  try {
+    const challenge = await chrome.runtime.sendMessage({ action: 'getDailyChallenge' });
+    if (challenge) {
+      if (challenge.expired) {
+        dailyChallengeInfo.textContent = '✅ 今日挑战已完成';
+      } else {
+        dailyChallengeInfo.textContent = `🎯 ${challenge.label} - 进行中`;
+      }
+    }
+  } catch (error) {
+    console.error('[Popup] Failed to load daily challenge:', error);
+    dailyChallengeInfo.textContent = '今日挑战加载中...';
+  }
+}
+
+async function loadDailyChallenge() {
+  try {
+    const data = await chrome.runtime.sendMessage({ action: 'getDailyChallenge' });
+    if (!data) return;
+
+    const challenge = data.challenge || {};
+    const isCompleted = data.completed || false;
+
+    if (challenge.type === 'speed') {
+      dailyChallengeInfo.textContent = `速度挑战：${challenge.target.wpm} WPM`;
+    } else if (challenge.type === 'accuracy') {
+      dailyChallengeInfo.textContent = `准确率挑战：${challenge.target.accuracy}%`;
+    } else if (challenge.type === 'streak') {
+      dailyChallengeInfo.textContent = `连击挑战：${challenge.target.streak} 连击`;
+    } else {
+      dailyChallengeInfo.textContent = '今日挑战加载中...';
+    }
+
+    dailyChallengeInfo.classList.toggle('popup__daily-challenge--completed', isCompleted);
+  } catch (error) {
+    console.error('[Popup] Failed to load daily challenge:', error);
+    dailyChallengeInfo.textContent = '今日挑战加载中...';
   }
 }
 
@@ -181,6 +237,34 @@ async function loadAchievements() {
 
 // ===== Event Listeners =====
 
+async function startPracticeInActiveTab(mode, difficulty) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) {
+    throw new Error('未找到当前活动标签页');
+  }
+
+  return chrome.runtime.sendMessage({
+    action: 'startOverlay',
+    mode,
+    difficulty,
+    tabId: tab.id
+  });
+}
+
+async function startPracticeInNewTab(mode, difficulty) {
+  const url = chrome.runtime.getURL('overlay/overlay.html');
+  const tab = await chrome.tabs.create({ url });
+  // 等待新标签页加载完成后发送 START_SESSION
+  await chrome.tabs.onUpdated.addListener(function listener(info, t) {
+    if (t.id !== tab.id) return;
+    if (info.status === 'complete') {
+      chrome.tabs.onUpdated.removeListener(listener);
+      chrome.tabs.sendMessage(t.id, { type: 'START_SESSION', data: { mode, difficulty } });
+    }
+  });
+  return { success: true, tabId: tab.id };
+}
+
   // 模式选择
   modeButtons.forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -201,18 +285,16 @@ async function loadAchievements() {
       console.warn('[Popup] Failed to fetch settings, using default:', error);
     }
 
-    const overlayResponse = await chrome.runtime.sendMessage({
-      action: 'startOverlay',
-      mode,
-      difficulty
-    });
-
-    // 确保消息已送达，再关闭弹窗（避免 MV3 上下文过早销毁导致消息丢失）
-    if (overlayResponse && overlayResponse.error) {
-      console.error('[Popup] startOverlay failed:', overlayResponse.error);
+    try {
+      const overlayResponse = await startPracticeInNewTab(mode, difficulty);
+      if (overlayResponse && overlayResponse.error) {
+        console.error('[Popup] startPracticeInNewTab failed:', overlayResponse.error);
+      }
+    } catch (err) {
+      console.error('[Popup] Failed to start practice:', err);
     }
 
-    // 延迟关闭，给 SW 留下处理时间
+    // 延迟关闭，给新标签页创建留出时间
     setTimeout(() => window.close(), 100);
   });
 });

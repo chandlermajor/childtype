@@ -23,16 +23,18 @@ const DEFAULTS = {
     totalKeystrokes: 0,
     modeStats: {
       letters: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
+      ordered: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
       words: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
       sentences: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
       free: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
       finger: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 }
     },
     modesPlayed: [],
-    lastPracticeDate: null,
+     lastPracticeDate: null,
     consecutiveDays: 0,
     dailyHistory: [],
     fingerPhase: 0,
+    liveStats: {},
     fingerStats: {
       'left-pinky': { sessions: 0, attempts: 0, correct: 0, errors: 0, msSamples: [] },
       'left-ring': { sessions: 0, attempts: 0, correct: 0, errors: 0, msSamples: [] },
@@ -45,6 +47,13 @@ const DEFAULTS = {
       'right-pinky': { sessions: 0, attempts: 0, correct: 0, errors: 0, msSamples: [] }
     },
     keyProficiency: {}
+  },
+  dailyChallenge: {
+    date: null,
+    type: null,
+    target: null,
+    label: null,
+    expired: false
   },
   achievements: {
     unlocked: [],

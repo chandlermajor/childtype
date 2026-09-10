@@ -9,6 +9,7 @@ import settingsManager from '../modules/SettingsManager.js';
 import levelSystem from '../modules/LevelSystem.js';
 import achievementSystem from '../modules/AchievementSystem.js';
 import fingerPhaseSystem from '../modules/FingerPhaseSystem.js';
+import dailyChallenge from '../modules/DailyChallenge.js';
 import layouts from '../data/keyboard-layouts.js';
 import { aggregateFingerStats, pruneKeyProficiency } from '../modules/FingerProficiency.js';
 
@@ -31,14 +32,16 @@ function init() {
   });
 
   // 消息路由
-  chrome.runtime.onMessage.addListener(async (message, sender) => {
-    try {
-      const response = await handleMessage(message, sender);
-      return response;
-    } catch (error) {
-      console.error('[ChildType] Message handler error:', error);
-      return { error: error.message };
-    }
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    handleMessage(message, sender)
+      .then(response => {
+        sendResponse(response);
+      })
+      .catch(error => {
+        console.error('[ChildType] Message handler error:', error);
+        sendResponse({ error: error.message });
+      });
+    return true;
   });
 
   // 快捷键处理
@@ -46,7 +49,7 @@ function init() {
     if (command === 'toggle-overlay') {
       toggleOverlay();
     } else if (command === 'pause-session') {
-      await sendMessageToTab('pauseSession');
+      await broadcastToOverlay({ type: 'pauseSession' });
     }
   });
 
@@ -84,10 +87,15 @@ async function handleMessage(message, sender) {
       return await settingsManager.getAllSettings();
 
     case 'saveSettings':
+      const prevLayout = settingsManager._cached?.keyboardLayout;
       await settingsManager.updateSettings(message.settings);
       // 主题变更时同步到 overlay
       if (message.settings.theme) {
         await broadcastToOverlay({ type: 'THEME_CHANGE', data: { theme: message.settings.theme } });
+      }
+      // 键盘布局变更时同步到 overlay
+      if (message.settings.keyboardLayout && message.settings.keyboardLayout !== prevLayout) {
+        await broadcastToOverlay({ type: 'LAYOUT_CHANGE', data: { layout: message.settings.keyboardLayout } });
       }
       return { success: true };
 
@@ -95,10 +103,19 @@ async function handleMessage(message, sender) {
       await settingsManager.resetToDefaults();
       return { success: true };
 
+    case 'getDailyChallenge':
+      return await dailyChallenge.getOrCreateDailyChallenge();
+
+    case 'checkDailyChallenge': {
+      const { wpm, accuracy, streak } = message;
+      return await dailyChallenge.checkChallengeCondition({ wpm, accuracy, streak });
+    }
+
     case 'recordKey': {
       const { key, finger, correct, responseMs } = message;
       const normalizedKey = typeof key === 'string' ? key.toLowerCase() : key;
-      const kp = (await store.get('progress.keyProficiency')) || {};
+      const progress = await store.get('progress');
+      const kp = (progress.keyProficiency || {});
       const cur = kp[normalizedKey] || { attempts: 0, correct: 0, msSamples: [] };
       cur.attempts++;
       cur.correct += correct ? 1 : 0;
@@ -108,11 +125,11 @@ async function handleMessage(message, sender) {
       }
       cur.lastAttemptAt = Date.now();
       kp[normalizedKey] = cur;
-      await store.set('progress.keyProficiency', kp);
-
+      progress.keyProficiency = kp;
       const layout = layouts[settingsManager._cached?.keyboardLayout] || layouts.QWERTY;
       const aggregated = aggregateFingerStats(kp, layout.fingerMap);
-      await store.set('progress.fingerStats', aggregated);
+      progress.fingerStats = aggregated;
+      await store.set('progress', progress);
       return { success: true };
     }
 
@@ -124,14 +141,16 @@ async function handleMessage(message, sender) {
       const total = message.total || 0;
       const batchAccuracy = total > 0 ? Math.round((correct / total) * 1000) / 10 : 0;
       const batchWpm = message.batchWpm || 0;
+      const batchMinutes = message.batchMinutes || 0;
 
       await store.update('progress', (current) => {
         const modeStats = { ...current.modeStats };
         const lettersStat = modeStats.letters || { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 };
         lettersStat.sessions += 1;
-        // 准确率取历史加权平均
-        const oldTotal = Math.max(lettersStat.totalMinutes, 1);
-        lettersStat.accuracy = Math.round(((lettersStat.accuracy * (oldTotal - 1) + batchAccuracy) * 10) / oldTotal) / 10;
+        lettersStat.totalMinutes += batchMinutes;
+        // 准确率取历史加权平均，使用 sessions 作为权重
+        const totalSessions = lettersStat.sessions;
+        lettersStat.accuracy = Math.round(((lettersStat.accuracy * (totalSessions - 1) + batchAccuracy) * 10) / totalSessions) / 10;
         if (batchWpm > lettersStat.bestWPM) lettersStat.bestWPM = batchWpm;
         modeStats.letters = lettersStat;
         return { ...current, modeStats };
@@ -155,20 +174,25 @@ async function handleMessage(message, sender) {
       return await levelSystem.getCurrentLevel();
 
     case 'startOverlay': {
-      const { mode, difficulty } = message;
-      // 打开新标签页显示 overlay 页面
-      const tab = await chrome.tabs.create({ url: chrome.runtime.getURL('overlay/overlay.html') });
-      currentOverlayState = { active: true, tabId: tab.id, mode, difficulty };
-      console.log('[ChildType] startOverlay opened new tab:', tab.id, 'mode:', mode);
-      // 延迟广播，确保页面加载完成
-      setTimeout(async () => {
-        await broadcastToOverlay({ type: 'START_SESSION', data: { mode, difficulty } });
-      }, 300);
-      return { success: true };
+      const { mode, difficulty, tabId } = message;
+      const targetTabId = tabId ?? (await getActiveTabId());
+      const activeMode = mode || 'letters';
+      await store.update('progress', (current) => {
+        if (!current.liveStats) return current;
+        const updated = { ...current.liveStats };
+        delete updated[activeMode];
+        return { ...current, liveStats: updated };
+      });
+      await startOverlayInTab(targetTabId, activeMode, difficulty || 'normal');
+      return { success: true, tabId: targetTabId };
     }
 
     case 'stopOverlay': {
       currentOverlayState = { active: false, tabId: null, mode: null, difficulty: null };
+      await store.update('progress', (current) => {
+        if (!current.liveStats) return current;
+        return { ...current, liveStats: {} };
+      });
       await broadcastToOverlay({ type: 'STOP_SESSION' });
       return { success: true };
     }
@@ -189,11 +213,8 @@ async function handleMessage(message, sender) {
         const modeStats = { ...current.modeStats };
 
         if (mode === 'letters') {
-          // 字母模式：sessions/accuracy/bestWPM 由 lettersBatchStarted 按批更新
-          // 此处只累加总时长
-          const lettersStat = modeStats.letters || { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 };
-          lettersStat.totalMinutes += minutes;
-          modeStats.letters = lettersStat;
+          // 字母模式：sessions/accuracy/bestWPM/totalMinutes 由 lettersBatchStarted 按批更新
+          // 此处无需重复更新 modeStats.letters
         } else {
           const modeStat = modeStats[mode] || { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 };
           const oldTotalMinutes = modeStat.totalMinutes || 0;
@@ -242,7 +263,6 @@ async function handleMessage(message, sender) {
       });
 
       // 增加经验值（正确按键数 + 会话奖励）
-      const correctKeystrokes = totalKeystrokes - errors;
       const baseExp = correctKeystrokes * 1 + 5; // EXP_PER_KEY=1, SESSION_BONUS=5
       await levelSystem.addExperience(baseExp, 'normal', 'session');
 
@@ -250,19 +270,41 @@ async function handleMessage(message, sender) {
       await store.update('progress.keyProficiency', kp => pruneKeyProficiency(kp || {}));
 
       // 统一检查成就解锁（读取完整 progress）
-      await achievementSystem.checkAllUnlocks();
+       await achievementSystem.checkAllUnlocks();
 
-      // 检查指法阶段推进
-      const advanced = await fingerPhaseSystem.advanceIfReady();
-      if (advanced !== null) {
-        await broadcastToOverlay({ type: 'PHASE_ADVANCE', data: { phase: advanced } });
-      }
+       // 检查每日挑战完成情况（使用当前会话统计）
+       await dailyChallenge.checkChallengeCondition({ wpm, accuracy, streak: message.streak });
 
-      return { success: true };
+       // 检查指法阶段推进
+       const advanced = await fingerPhaseSystem.advanceIfReady();
+       if (advanced !== null) {
+         await broadcastToOverlay({ type: 'PHASE_ADVANCE', data: { phase: advanced } });
+       }
+
+        // 清除本次会话的实时统计
+        await store.update('progress', (current) => {
+          if (!current.liveStats) return current;
+          const updated = { ...current.liveStats };
+          delete updated[mode];
+          return { ...current, liveStats: updated };
+        });
+
+        return { success: true };
     }
 
     case 'updateStats': {
-      const { wpm, accuracy, streak, totalKeystrokes } = message;
+      const { wpm, accuracy, streak, totalKeystrokes, mode } = message;
+      const now = Date.now();
+      await store.update('progress', (current) => {
+        const liveStats = current.liveStats || {};
+        return {
+          ...current,
+          liveStats: {
+            ...liveStats,
+            [mode || 'letters']: { wpm, accuracy, streak, totalKeystrokes, lastUpdate: now }
+          }
+        };
+      });
       return { ack: true };
     }
 
@@ -277,13 +319,75 @@ async function handleMessage(message, sender) {
 }
 
 /**
+ * 获取当前窗口活动标签页 ID
+ * @returns {Promise<number|undefined>}
+ */
+async function getActiveTabId() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab?.id;
+}
+
+/**
+ * 向目标标签页按需注入 overlay 样式和脚本
+ * @param {number} tabId - 目标标签页 ID
+ */
+async function injectOverlayAssets(tabId) {
+  if (!Number.isInteger(tabId)) {
+    throw new Error('无法确定要注入 overlay 的标签页');
+  }
+
+  try {
+    await chrome.scripting.insertCSS({
+      target: { tabId },
+      files: ['overlay/overlay.css']
+    });
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['overlay/overlay.js']
+    });
+  } catch (injectError) {
+    console.error('[ChildType] Overlay injection failed into tab:', tabId, injectError);
+    throw injectError;
+  }
+
+  console.info('[ChildType] Overlay assets injected into tab:', tabId);
+}
+
+/**
+ * 在指定标签页启动 overlay
+ * @param {number} tabId - 目标标签页 ID
+ * @param {string} mode - 练习模式
+ * @param {string} difficulty - 难度
+ */
+async function startOverlayInTab(tabId, mode = 'letters', difficulty = 'normal') {
+  // 无法在特权页面（chrome:// 等）注入脚本或发送消息，直接跳过
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (tab && tab.url && tab.url.startsWith('chrome://')) {
+    console.warn('[ChildType] startOverlayInTab: skipping chrome:// tab', tabId);
+    return;
+  }
+  await injectOverlayAssets(tabId);
+  currentOverlayState = { active: true, tabId, mode, difficulty };
+  console.info('[ChildType] Overlay started in tab:', tabId, 'mode:', mode);
+
+  // 等待内容脚本初始化完成后再广播，避免消息在 onMessage 注册前发出
+  const ack = await chrome.tabs.sendMessage(tabId, { type: '__ping__' }).catch(() => null);
+  if (!ack?.pong) {
+    console.warn('[ChildType] Overlay not ready, sending START_SESSION directly');
+  }
+  await broadcastToOverlay({ type: 'START_SESSION', data: { mode, difficulty } });
+}
+
+/**
  * 切换 overlay 显示/隐藏（快捷键触发）
  */
 async function toggleOverlay() {
   if (currentOverlayState.active) {
-    await sendMessageToTab('stopOverlay');
+    await broadcastToOverlay({ type: 'STOP_SESSION' });
+    currentOverlayState = { active: false, tabId: null, mode: null, difficulty: null };
   } else {
-    await sendMessageToTab('startOverlay');
+    const tabId = await getActiveTabId();
+    await startOverlayInTab(tabId);
   }
 }
 
@@ -305,66 +409,25 @@ async function broadcastToOverlay(payload) {
       console.warn('[ChildType] broadcastToOverlay: tab not found');
       return;
     }
+    // 跳过特权页面（chrome://、chrome-extension:// 自身等），无法向这些页面发送消息
+    if (tab.url && tab.url.startsWith('chrome://')) {
+      console.warn('[ChildType] broadcastToOverlay: skipping chrome:// tab', tabId);
+      return;
+    }
 
-    // 先发送消息；若内容脚本尚未就绪（onMessage 未注册），重新注入后重试
     try {
-      chrome.tabs.sendMessage(tab.id, payload);
+      await chrome.tabs.sendMessage(tab.id, payload);
     } catch (sendError) {
       console.warn('[ChildType] broadcastToOverlay: retry injection:', sendError.message);
       try {
-        await chrome.scripting.executeScript({
-          target: { tabId },
-          files: ['overlay/overlay.js']
-        });
-        // 重新获取 tab 对象，确保消息发送到正确的标签页
-        const freshTab = await chrome.tabs.get(tabId);
-        if (freshTab) {
-          chrome.tabs.sendMessage(freshTab.id, payload);
-        }
+        await injectOverlayAssets(tabId);
+        await chrome.tabs.sendMessage(tabId, payload);
       } catch (retryError) {
         console.warn('[ChildType] broadcastToOverlay: injection retry failed:', retryError.message);
       }
     }
   } catch (error) {
     console.warn('[ChildType] Failed to broadcast to overlay:', error);
-  }
-}
-
-/**
- * 向指定标签注入 overlay（Content Script）
- * @param {number} tabId - 目标标签页 ID
- */
-async function injectOverlay(tabId) {
-  try {
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      files: ['overlay/overlay.js']
-    });
-  } catch (error) {
-    console.warn('[ChildType] Failed to inject overlay:', error);
-  }
-}
-
-/**
- * 向指定标签发送消息
- * @param {string} type - 消息类型
- * @param {Object} [data] - 消息数据
- */
-async function sendMessageToTab(type, data) {
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab) {
-      // 将 camelCase 消息类型映射为 overlay.js 中的期望类型
-      const typeMap = {
-        'startOverlay': 'START_SESSION',
-        'stopOverlay': 'STOP_SESSION',
-        'pauseSession': 'pauseSession'
-      };
-      const messageType = typeMap[type] || type.toUpperCase();
-      chrome.tabs.sendMessage(tab.id, { type: messageType, data });
-    }
-  } catch (error) {
-    console.warn('[ChildType] Failed to send to tab:', error);
   }
 }
 

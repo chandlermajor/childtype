@@ -192,70 +192,7 @@ function createOverlayContainer() {
         <div class="overlay__target-hint" id="target-hint">点击扩展图标选择练习模式</div>
       </div>
     </div>
-    <div class="overlay__keyboard" id="keyboard-container">
-      <div class="overlay__keyboard-row" id="row-0">
-        <div class="overlay__key" data-key="\`" data-finger="left-pinky">\`</div>
-        <div class="overlay__key" data-key="1" data-finger="left-pinky">1</div>
-        <div class="overlay__key" data-key="2" data-finger="left-ring">2</div>
-        <div class="overlay__key" data-key="3" data-finger="left-middle">3</div>
-        <div class="overlay__key" data-key="4" data-finger="left-index">4</div>
-        <div class="overlay__key" data-key="5" data-finger="left-index">5</div>
-        <div class="overlay__key" data-key="6" data-finger="right-index">6</div>
-        <div class="overlay__key" data-key="7" data-finger="right-index">7</div>
-        <div class="overlay__key" data-key="8" data-finger="right-middle">8</div>
-        <div class="overlay__key" data-key="9" data-finger="right-ring">9</div>
-        <div class="overlay__key" data-key="0" data-finger="right-pinky">0</div>
-        <div class="overlay__key" data-key="-" data-finger="right-pinky">-</div>
-        <div class="overlay__key" data-key="=" data-finger="right-pinky">=</div>
-        <div class="overlay__key overlay__key--backspace" data-key="Backspace" data-finger="right-pinky">⌫</div>
-      </div>
-      <div class="overlay__keyboard-row" id="row-1">
-        <div class="overlay__key overlay__key--indent" data-key="q" data-finger="left-pinky">Q</div>
-        <div class="overlay__key" data-key="w" data-finger="left-ring">W</div>
-        <div class="overlay__key" data-key="e" data-finger="left-middle">E</div>
-        <div class="overlay__key" data-key="r" data-finger="left-index">R</div>
-        <div class="overlay__key" data-key="t" data-finger="left-index">T</div>
-        <div class="overlay__key" data-key="y" data-finger="right-index">Y</div>
-        <div class="overlay__key" data-key="u" data-finger="right-index">U</div>
-        <div class="overlay__key" data-key="i" data-finger="right-middle">I</div>
-        <div class="overlay__key" data-key="o" data-finger="right-ring">O</div>
-        <div class="overlay__key" data-key="p" data-finger="right-pinky">P</div>
-        <div class="overlay__key" data-key="[" data-finger="right-pinky">[</div>
-        <div class="overlay__key" data-key="]" data-finger="right-pinky">]</div>
-        <div class="overlay__key" data-key="\\" data-finger="right-pinky">\</div>
-      </div>
-      <div class="overlay__keyboard-row" id="row-2">
-        <div class="overlay__key overlay__key--home overlay__key--indent" data-key="a" data-finger="left-pinky" title="基准键">A</div>
-        <div class="overlay__key overlay__key--home" data-key="s" data-finger="left-ring" title="基准键">S</div>
-        <div class="overlay__key overlay__key--home" data-key="d" data-finger="left-middle" title="基准键">D</div>
-        <div class="overlay__key overlay__key--home" data-key="f" data-finger="left-index" title="基准键 · 凸起">F</div>
-        <div class="overlay__key overlay__key--home" data-key="g" data-finger="left-index" title="基准键">G</div>
-        <div class="overlay__key overlay__key--home" data-key="h" data-finger="right-index" title="基准键">H</div>
-        <div class="overlay__key overlay__key--home" data-key="j" data-finger="right-index" title="基准键 · 凸起">J</div>
-        <div class="overlay__key overlay__key--home" data-key="k" data-finger="right-middle" title="基准键">K</div>
-        <div class="overlay__key overlay__key--home" data-key="l" data-finger="right-ring" title="基准键">L</div>
-        <div class="overlay__key overlay__key--home" data-key=";" data-finger="right-pinky" title="基准键">;</div>
-        <div class="overlay__key" data-key="'" data-finger="right-pinky">'</div>
-        <div class="overlay__key overlay__key--enter" data-key="Enter" data-finger="right-pinky">Enter</div>
-      </div>
-      <div class="overlay__keyboard-row" id="row-3">
-        <div class="overlay__key overlay__key--shift overlay__key--indent-wide" data-key="Shift" data-finger="left-pinky">Shift</div>
-        <div class="overlay__key" data-key="z" data-finger="left-pinky">Z</div>
-        <div class="overlay__key" data-key="x" data-finger="left-ring">X</div>
-        <div class="overlay__key" data-key="c" data-finger="left-middle">C</div>
-        <div class="overlay__key" data-key="v" data-finger="left-index">V</div>
-        <div class="overlay__key" data-key="b" data-finger="left-index">B</div>
-        <div class="overlay__key" data-key="n" data-finger="right-index">N</div>
-        <div class="overlay__key" data-key="m" data-finger="right-index">M</div>
-        <div class="overlay__key" data-key="," data-finger="right-middle">,</div>
-        <div class="overlay__key" data-key="." data-finger="right-ring">.</div>
-        <div class="overlay__key" data-key="/" data-finger="right-pinky">/</div>
-        <div class="overlay__key overlay__key--shift" data-key="Shift" data-finger="right-pinky">Shift</div>
-      </div>
-      <div class="overlay__keyboard-row" id="row-4">
-        <div class="overlay__key overlay__key--space" data-key=" " data-finger="thumb">Space</div>
-      </div>
-    </div>
+    <div class="overlay__keyboard" id="keyboard-container"></div>
     <div class="overlay__notification" id="notification" hidden>
       <span class="overlay__notification-icon" id="notification-icon">🎉</span>
       <span class="overlay__notification-text" id="notification-text">升级!</span>
@@ -268,8 +205,60 @@ function createOverlayContainer() {
   return container;
 }
 
+// ===== Dynamic Keyboard Builder =====
+/**
+ * 根据当前布局动态构建虚拟键盘
+ * @param {string} layoutName - 布局名称 (QWERTY / AZERTY)
+ */
+async function buildKeyboard(layoutName) {
+  try {
+    const layoutData = (await import('../data/keyboard-layouts.js')).default[layoutName];
+    if (!layoutData) return;
+
+    const container = document.getElementById('keyboard-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    layoutData.rows.forEach((row, rowIndex) => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'overlay__keyboard-row';
+      rowEl.id = `row-${rowIndex}`;
+
+      row.forEach(key => {
+        const keyEl = document.createElement('div');
+        keyEl.className = 'overlay__key';
+        keyEl.setAttribute('data-key', key);
+        const finger = layoutData.fingerMap[key] || 'thumb';
+        keyEl.setAttribute('data-finger', finger);
+
+        if (key === 'Space') {
+          keyEl.classList.add('overlay__key--space');
+          keyEl.textContent = 'Space';
+        } else if (key === 'Enter') {
+          keyEl.classList.add('overlay__key--enter');
+          keyEl.textContent = 'Enter';
+        } else if (key === 'Backspace') {
+          keyEl.classList.add('overlay__key--backspace');
+          keyEl.textContent = '⌫';
+        } else if (key === 'Shift') {
+          keyEl.classList.add('overlay__key--shift');
+          keyEl.textContent = 'Shift';
+        } else {
+          keyEl.textContent = key;
+        }
+
+        rowEl.appendChild(keyEl);
+      });
+
+      container.appendChild(rowEl);
+    });
+  } catch (err) {
+    console.error('[Overlay] Failed to build keyboard:', err);
+  }
+}
+
 // ===== Initialize =====
-function init() {
+async function init() {
   // Guard against double initialization (e.g. overlay.js loaded as both
   // extension page script and injected content script).
   if (window.__childtypeOverlayInit__) {
@@ -279,8 +268,8 @@ function init() {
 
   // Check if we're running on the overlay.html page itself
   const isOverlayPage = window.location.pathname.endsWith('overlay.html');
-  
-if (isOverlayPage) {
+
+  if (isOverlayPage) {
     // On overlay.html page - use existing elements
     // Elements are already in the DOM from overlay.html
   } else {
@@ -333,6 +322,17 @@ if (isOverlayPage) {
   if (targetHint) {
     targetHint.textContent = '选择练习模式开始打字';
   }
+
+  // Build keyboard based on current layout setting
+  const settings = await chrome.storage.local.get(['settings']);
+  const layout = (settings.settings && settings.settings.keyboardLayout) || 'QWERTY';
+  await buildKeyboard(layout);
+
+  // Apply font size
+  const fontSize = settings.settings?.fontSize || 16;
+  if (keyboardContainer) {
+    keyboardContainer.style.fontSize = `${fontSize}px`;
+  }
 }
 
 /**
@@ -341,6 +341,8 @@ if (isOverlayPage) {
  */
 async function handleMessage(message) {
   switch (message.type) {
+    case '__ping__':
+      return { pong: true };
     case 'START_SESSION':
       // Store the mode so it's available even if keys are pressed before session starts
       state.mode = message.data.mode || 'letters';
@@ -359,6 +361,16 @@ async function handleMessage(message) {
     case 'THEME_CHANGE':
       document.documentElement.dataset.theme = message.data.theme;
       break;
+    case 'LAYOUT_CHANGE': {
+      try {
+        const layoutName = message.data.layout || 'QWERTY';
+        await buildKeyboard(layoutName);
+        await applyFingerPhaseHighlight(await readCurrentFingerPhase());
+      } catch (err) {
+        console.error('[Overlay] Failed to handle LAYOUT_CHANGE:', err);
+      }
+      break;
+    }
     case 'PHASE_ADVANCE': {
       try {
         const data = await chrome.storage.local.get([PROGRESS_LS_KEY]);
@@ -386,6 +398,12 @@ async function startSession(mode, difficulty) {
   // 确保 overlay 可见（移除 hidden 类）
   const overlay = document.getElementById('childtype-overlay');
   if (overlay) overlay.classList.remove('hidden');
+  
+  // 应用字体大小到 overlay
+  chrome.runtime.sendMessage({ action: 'getSettings' }, (settings) => {
+    const size = settings?.fontSize || 16;
+    overlay.style.fontSize = `${size}px`;
+  });
   
   state.mode = mode;
   state.difficulty = difficulty;
@@ -452,7 +470,9 @@ function stopOverlay() {
       duration: elapsed,
       totalKeystrokes: state.totalKeystrokes,
       errors: state.errors,
-      mode: state.mode
+      mode: state.mode,
+      streak: state.streak,
+      maxStreak: state.maxStreak
     });
   }
 
@@ -489,6 +509,11 @@ async function setNextTarget() {
   switch (state.mode) {
     case 'letters':
       state.batchTarget = getBatchLetters();
+      state.batchIndex = 0;
+      state.target = state.batchTarget[0] || null;
+      break;
+    case 'ordered':
+      state.batchTarget = [...LETTERS];
       state.batchIndex = 0;
       state.target = state.batchTarget[0] || null;
       break;
@@ -643,6 +668,9 @@ async function processKey(pressedKey, code) {
 
   state.totalKeystrokes++;
   state.lastKeyTime = Date.now();
+  if (state.mode === 'letters' || state.mode === 'ordered') {
+    state.batchTotalKeystrokes++;
+  }
 
   try {
     const finger = await getFingerForKey(expectedChar);
@@ -659,53 +687,60 @@ async function processKey(pressedKey, code) {
   }
 
   if (isCorrect) {
-     state.correctKeystrokes++;
-     state.streak++;
-     if (state.streak > state.maxStreak) state.maxStreak = state.streak;
+    state.correctKeystrokes++;
+    if (state.mode === 'letters' || state.mode === 'ordered') {
+      state.batchCorrectKeystrokes++;
+    }
+    state.streak++;
+    if (state.streak > state.maxStreak) state.maxStreak = state.streak;
 
-      animateKey(pressedKey, true);
-      highlightKey(pressedKey, 'correct');
-      if (soundManager) soundManager.playCorrect();
+    animateKey(pressedKey, true);
+    highlightKey(pressedKey, 'correct');
+    if (soundManager) soundManager.playCorrect();
 
-      // 移动到下一个
-      if (state.mode === 'letters') {
-        state.batchIndex++;
-        state.target = state.batchTarget[state.batchIndex] || null;
-        if (state.batchIndex >= state.batchTarget.length) {
+    // 移动到下一个
+    if (state.mode === 'letters' || state.mode === 'ordered') {
+      state.batchIndex++;
+      state.target = state.batchTarget[state.batchIndex] || null;
+      if (state.batchIndex >= state.batchTarget.length) {
+        if (state.mode === 'ordered') {
+          stopOverlay();
+        } else {
           lettersBatchNeedsRefresh = true;
           await setNextTarget();
-        } else {
-          updateTargetDisplay();
-          highlightNextKey();
         }
-      } else if (state.mode === 'words') {
-       state._wordIndex++;
-       const word = typeof state.target === 'object' ? state.target.text : state.target;
-       if (state._wordIndex >= word.length) {
-         await setNextTarget();
-       } else {
-         updateTargetDisplay();
-         highlightNextKey();
-       }
-     } else if (state.mode === 'sentences') {
-       state._charIndex++;
-       const sentence = typeof state.target === 'object' ? state.target.text : state.target;
-       if (state._charIndex >= sentence.length) {
-         await setNextTarget();
-       } else {
-         updateTargetDisplay();
-         highlightNextKey();
-       }
-     }
-} else {
-     state.errors++;
-     state.streak = 0;
+      } else {
+        updateTargetDisplay();
+        highlightNextKey();
+      }
+    } else if (state.mode === 'words') {
+      state._wordIndex++;
+      const word = typeof state.target === 'object' ? state.target.text : state.target;
+      if (state._wordIndex >= word.length) {
+        await setNextTarget();
+      } else {
+        updateTargetDisplay();
+        highlightNextKey();
+      }
+    } else if (state.mode === 'sentences') {
+      state._charIndex++;
+      const sentence = typeof state.target === 'object' ? state.target.text : state.target;
+      if (state._charIndex >= sentence.length) {
+        await setNextTarget();
+      } else {
+        updateTargetDisplay();
+        highlightNextKey();
+      }
+    }
+  } else {
+    state.errors++;
+    state.streak = 0;
 
-     animateKey(pressedKey, false);
-     highlightKey(pressedKey, 'wrong');
-     if (soundManager) soundManager.playWrong();
+    animateKey(pressedKey, false);
+    highlightKey(pressedKey, 'wrong');
+    if (soundManager) soundManager.playWrong();
 
-     // 错误时在目标显示提示
+    // 错误时在目标显示提示
     targetLetter.className = 'overlay__target-letter wrong';
     setTimeout(() => {
       targetLetter.className = 'overlay__target-letter';
@@ -718,7 +753,13 @@ async function processKey(pressedKey, code) {
     wpm: calculateWPM(),
     accuracy: getAccuracy(),
     streak: state.streak,
-    totalKeystrokes: state.totalKeystrokes
+    totalKeystrokes: state.totalKeystrokes,
+    mode: state.mode,
+    batchCorrect: state.batchCorrectKeystrokes,
+    batchTotal: state.batchTotalKeystrokes,
+    batchWpm: state.batchStartTime && state.batchTotalKeystrokes >= 5
+      ? Math.round((state.batchCorrectKeystrokes / 5) / ((Date.now() - state.batchStartTime) / 1000 / 60) * 10) / 10
+      : calculateWPM()
   });
 
   updateStats();
@@ -787,6 +828,7 @@ function stopTimer() {
 function getModeLabel(mode) {
   const labels = {
     letters: '🔤 字母练习',
+    ordered: '🔤 顺序字母',
     words: '📖 单词练习',
     sentences: '📋 句子练习',
     free: '✍️ 自由打字',
@@ -808,6 +850,10 @@ function generateBatch() {
   lettersBatch = [...lettersMasterBatch].sort(() => Math.random() - 0.5);
   lettersBatchIndex = 0;
   lettersBatchNeedsRefresh = false;
+  state.batchStartTime = Date.now();
+  state.batchTotalKeystrokes = 0;
+  state.batchCorrectKeystrokes = 0;
+  state.batchPauseStartedAt = null;
   return lettersBatch;
 }
 
@@ -818,14 +864,31 @@ function generateBatch() {
 function getBatchLetters() {
   if (lettersBatch.length === 0 || lettersBatchNeedsRefresh) {
     if (lettersBatch.length > 0) {
+      const batchDurationSec = state.batchStartTime
+        ? (Date.now() - state.batchStartTime) / 1000
+        : 0;
+      const batchMinutes = batchDurationSec > 0
+        ? Math.round((batchDurationSec / 60) * 10) / 10
+        : 0;
+      const batchTotal = state.batchTotalKeystrokes || 0;
+      const batchCorrect = state.batchCorrectKeystrokes || 0;
+      const batchAccuracy = batchTotal > 0
+        ? Math.round((batchCorrect / batchTotal) * 1000) / 10
+        : 0;
+      const batchWpm = state.startTime && batchTotal >= 5 && batchDurationSec > 0
+        ? Math.round((batchCorrect / 5) / (batchDurationSec / 60) * 10) / 10
+        : 0;
+
       chrome.runtime.sendMessage({
         action: 'lettersBatchStarted',
         batchIndex: lettersBatchIndex,
         prevBatch: lettersBatch,
         prevCount: lettersBatchIndex,
-        correct: state.correctKeystrokes,
-        total: state.totalKeystrokes,
-        batchWpm: calculateWPM()
+        correct: batchCorrect,
+        total: batchTotal,
+        batchAccuracy: batchAccuracy,
+        batchWpm: batchWpm,
+        batchMinutes: batchMinutes
       });
     }
     return generateBatch();
@@ -969,4 +1032,4 @@ function showNotification(icon, text) {
 }
 
 // ===== Start =====
-init();
+init().catch(err => console.error('[Overlay] init failed:', err));

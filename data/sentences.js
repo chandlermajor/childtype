@@ -25,7 +25,9 @@ const sentences = {
     'Come back soon.',
     'Say hello there.',
     'Please be nice.',
-    'Thank you very much.'
+    'Thank you very much.',
+    'Today is a good day.',
+    'I love to read books.'
   ],
   medium: [
     'The quick brown fox jumps over the lazy dog.',
@@ -42,7 +44,8 @@ const sentences = {
     'We need to finish this big project before five.',
     'The teacher asked the student to read aloud.',
     'Music helps us feel calm and peaceful inside.',
-    'The garden grew many flowers in the spring sun.'
+    'The garden grew many flowers in the spring sun.',
+    'Learning to type is fun and useful.'
   ],
   hard: [
     'Programming is the art of telling a computer what to do step by step.',
@@ -54,7 +57,8 @@ const sentences = {
     'The intersection of art and technology creates truly innovative experiences.',
     'Understanding different cultures enriches our perspective on the world.',
     'Consistent practice leads to gradual improvement in typing speed over time.',
-    'The scientific method relies on careful observation and repeated experimentation.'
+    'The scientific method relies on careful observation and repeated experimentation.',
+    'Typing accuracy improves with regular practice and patience.'
   ]
 };
 
