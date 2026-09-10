@@ -267,7 +267,10 @@ async function handleMessage(message, sender) {
       await levelSystem.addExperience(baseExp, 'normal', 'session');
 
       // 修剪过期键位熟练度数据
-      await store.update('progress.keyProficiency', kp => pruneKeyProficiency(kp || {}));
+      await store.update('progress', (current) => {
+        const kp = current.keyProficiency || {};
+        return { ...current, keyProficiency: pruneKeyProficiency(kp) };
+      });
 
       // 统一检查成就解锁（读取完整 progress）
        await achievementSystem.checkAllUnlocks();

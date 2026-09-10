@@ -110,13 +110,16 @@ class LevelSystem {
     const oldLevel = progress.currentLevel;
     const newExp = progress.experience + gained;
 
-    await store.set('progress.experience', newExp);
-
     const newLevelInfo = this.getLevelAtExp(newExp);
     const leveledUp = newLevelInfo.level > oldLevel;
 
+    await store.update('progress', (current) => ({
+      ...current,
+      experience: newExp,
+      currentLevel: newLevelInfo.level
+    }));
+
     if (leveledUp) {
-      await store.set('progress.currentLevel', newLevelInfo.level);
       this._emit('onLevelUp', {
         oldLevel,
         newLevel: newLevelInfo.level,
