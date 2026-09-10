@@ -17,9 +17,8 @@ const progressFill = document.getElementById('progress-fill');
 const progressCurrent = document.getElementById('progress-current');
 const progressNext = document.getElementById('progress-next');
 const settingsPanel = document.getElementById('settings-panel');
-const achievementsPanel = document.getElementById('achievements-panel');
-const achievementGrid = document.getElementById('achievement-grid');
-const achievementProgress = document.getElementById('achievement-progress');
+const achievementGrid = document.getElementById('achievement-grid-main');
+const achievementProgress = document.getElementById('achievement-progress-main');
 
 
 // Setting elements
@@ -30,11 +29,9 @@ const settingDifficulty = document.getElementById('setting-difficulty');
 
 // Action buttons
 const btnSettings = document.getElementById('btn-settings');
-const btnAchievements = document.getElementById('btn-achievements');
 const btnPrivacy = document.getElementById('btn-privacy');
 const btnResetSettings = document.getElementById('btn-reset-settings');
 const btnCloseSettings = document.getElementById('btn-close-settings');
-const btnCloseAchievements = document.getElementById('btn-close-achievements');
 
 // ===== Initialize =====
 async function init() {
@@ -205,14 +202,14 @@ async function loadAchievements() {
   try {
     const data = await chrome.runtime.sendMessage({ action: 'getAchievements' });
     if (data) {
-      achievementProgress.textContent = `${data.unlocked.length}/20`;
-
       // 清空网格
       achievementGrid.innerHTML = '';
 
       // 从 AchievementSystem 获取成就定义（避免重复定义）
       const achievementDefs = await chrome.runtime.sendMessage({ action: 'getAchievementDefinitions' });
       if (!achievementDefs) return;
+
+      achievementProgress.textContent = `${data.unlocked.length}/${achievementDefs.length}`;
 
       const unlockedIds = (data.unlocked || []).map(u => u.id);
 
@@ -299,24 +296,6 @@ async function startPracticeInNewTab(mode, difficulty) {
 // 设置按钮
 btnSettings.addEventListener('click', () => {
   settingsPanel.hidden = false;
-  achievementsPanel.hidden = true;
-});
-
-// 成就按钮
-btnAchievements.addEventListener('click', async () => {
-  await loadAchievements();
-  achievementsPanel.hidden = false;
-  settingsPanel.hidden = true;
-});
-
-// 关闭设置
-btnCloseSettings.addEventListener('click', () => {
-  settingsPanel.hidden = true;
-});
-
-// 关闭成就
-btnCloseAchievements.addEventListener('click', () => {
-  achievementsPanel.hidden = true;
 });
 
 // 隐私政策

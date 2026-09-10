@@ -255,6 +255,186 @@ const ACHIEVEMENTS = [
     icon: '⬇️',
     condition: { type: 'fingerPhase', threshold: 6 },
     experienceReward: 80
+  },
+  {
+    id: 'wpm_70',
+    name: '音速',
+    nameEn: 'Sound Speed',
+    description: 'WPM 达到 70',
+    icon: '🚀',
+    condition: { type: 'bestWPM', threshold: 70 },
+    experienceReward: 120
+  },
+  {
+    id: 'wpm_80',
+    name: '极限速度',
+    nameEn: 'Limit Breaker',
+    description: 'WPM 达到 80',
+    icon: '🏆',
+    condition: { type: 'bestWPM', threshold: 80 },
+    experienceReward: 180
+  },
+  {
+    id: 'streak_100',
+    name: '世纪连击',
+    nameEn: 'Century Streak',
+    description: '连续正确 100 个键',
+    icon: '💥',
+    condition: { type: 'maxStreak', threshold: 100 },
+    experienceReward: 200
+  },
+  {
+    id: 'perfect_50',
+    name: '完美五十',
+    nameEn: 'Perfect Fifty',
+    description: '单次练习准确率 100%（至少 50 个键）',
+    icon: '💎',
+    condition: { type: 'perfectSession', threshold: 50 },
+    experienceReward: 150
+  },
+  {
+    id: 'perfect_100',
+    name: '完美百击',
+    nameEn: 'Perfect Century',
+    description: '单次练习准确率 100%（至少 100 个键）',
+    icon: '👑',
+    condition: { type: 'perfectSession', threshold: 100 },
+    experienceReward: 300
+  },
+  {
+    id: 'thirty_minutes',
+    name: '半小时',
+    nameEn: 'Half Hour',
+    description: '累计练习 30 分钟',
+    icon: '⏳',
+    condition: { type: 'totalMinutes', threshold: 30 },
+    experienceReward: 80
+  },
+  {
+    id: 'five_hours',
+    name: '五小时',
+    nameEn: 'Five Hours',
+    description: '累计练习 300 分钟',
+    icon: '🕰️',
+    condition: { type: 'totalMinutes', threshold: 300 },
+    experienceReward: 200
+  },
+  {
+    id: 'ten_thousand_keys',
+    name: '万击',
+    nameEn: 'Ten Thousand',
+    description: '累计按下 10000 个键',
+    icon: '💪',
+    condition: { type: 'totalKeystrokes', threshold: 10000 },
+    experienceReward: 150
+  },
+  {
+    id: 'hundred_thousand_keys',
+    name: '十万击',
+    nameEn: 'Hundred Thousand',
+    description: '累计按下 100000 个键',
+    icon: '🔥',
+    condition: { type: 'totalKeystrokes', threshold: 100000 },
+    experienceReward: 500
+  },
+  {
+    id: 'level_15',
+    name: '大师之路',
+    nameEn: 'Master Path',
+    description: '达到 Lv.15',
+    icon: '🌟',
+    condition: { type: 'level', threshold: 15 },
+    experienceReward: 300
+  },
+  {
+    id: 'level_20',
+    name: '传奇',
+    nameEn: 'Legend',
+    description: '达到 Lv.20',
+    icon: '🏅',
+    condition: { type: 'level', threshold: 20 },
+    experienceReward: 500
+  },
+  {
+    id: 'fourteen_days',
+    name: '双周坚持',
+    nameEn: 'Fortnight Streak',
+    description: '连续 14 天练习',
+    icon: '📆',
+    condition: { type: 'consecutiveDays', threshold: 14 },
+    experienceReward: 200
+  },
+  {
+    id: 'thirty_days',
+    name: '月度达人',
+    nameEn: 'Monthly Pro',
+    description: '连续 30 天练习',
+    icon: '🗓️',
+    condition: { type: 'consecutiveDays', threshold: 30 },
+    experienceReward: 400
+  },
+  {
+    id: 'marathon',
+    name: '马拉松',
+    nameEn: 'Marathon',
+    description: '累计练习 120 分钟',
+    icon: '🏃',
+    condition: { type: 'totalMinutes', threshold: 120 },
+    experienceReward: 250
+  },
+  {
+    id: 'speed_demon',
+    name: '极速恶魔',
+    nameEn: 'Speed Demon',
+    description: '连续正确 200 个键',
+    icon: '⚡',
+    condition: { type: 'maxStreak', threshold: 200 },
+    experienceReward: 350
+  },
+  {
+    id: 'perfect_hour',
+    name: '完美小时',
+    nameEn: 'Perfect Hour',
+    description: '单次练习准确率 100%（至少 120 个键）',
+    icon: '💯',
+    condition: { type: 'perfectSession', threshold: 120 },
+    experienceReward: 400
+  },
+  {
+    id: 'level_25',
+    name: '宗师',
+    nameEn: 'Grandmaster',
+    description: '达到 Lv.25',
+    icon: '🎖️',
+    condition: { type: 'level', threshold: 25 },
+    experienceReward: 800
+  },
+  {
+    id: 'sixty_days',
+    name: '两月坚持',
+    nameEn: 'Bi-Monthly Streak',
+    description: '连续 60 天练习',
+    icon: '🎖️',
+    condition: { type: 'consecutiveDays', threshold: 60 },
+    experienceReward: 600
+  },
+  {
+    id: 'total_keys_50k',
+    name: '五万击',
+    nameEn: 'Fifty Thousand',
+    description: '累计按下 50000 个键',
+    icon: '🏋️',
+    condition: { type: 'totalKeystrokes', threshold: 50000 },
+    experienceReward: 250
+  },
+  {
+    id: 'speed_100',
+    name: '百速',
+    nameEn: 'Century Speed',
+    description: 'WPM 达到 100',
+    icon: '👑',
+    condition: { type: 'bestWPM', threshold: 100 },
+    experienceReward: 500
   }
 ];
 

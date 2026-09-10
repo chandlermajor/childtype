@@ -1,6 +1,6 @@
 /**
  * AchievementSystem — 成就系统
- * 管理 20+ 成就的解锁判定与徽章展示
+ * 管理 48 成就的解锁判定与徽章展示
  * @module modules/AchievementSystem
  */
 
