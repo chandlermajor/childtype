@@ -25,7 +25,6 @@ const achievementProgress = document.getElementById('achievement-progress-main')
 const settingTheme = document.getElementById('setting-theme');
 const settingFontSize = document.getElementById('setting-font-size');
 const settingSound = document.getElementById('setting-sound');
-const settingDifficulty = document.getElementById('setting-difficulty');
 
 // Action buttons
 const btnSettings = document.getElementById('btn-settings');
@@ -73,7 +72,6 @@ async function loadSettings() {
       settingTheme.value = settings.theme || 'light';
       settingFontSize.value = settings.fontSize || 16;
       settingSound.checked = settings.soundEnabled !== false;
-      settingDifficulty.value = settings.difficulty || 'normal';
       // 应用主题到 DOM
       document.documentElement.dataset.theme = settings.theme || 'light';
     }
@@ -199,33 +197,50 @@ async function loadDailyChallenge() {
 }
 
 /**
- * 加载成就列表
+ * 渲染成就网格到指定容器
+ * 将成就分为已解锁/未解锁两类，分别应用对应的 class，确保重置后图标回到未激活状态
+ * @param {HTMLElement} container - 目标网格容器
+ * @param {Array} achievementDefs - 成就定义列表
+ * @param {Array<string>} unlockedIds - 已解锁成就 ID 列表
+ */
+function renderAchievementGrid(container, achievementDefs, unlockedIds) {
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  achievementDefs.forEach(achievement => {
+    const isUnlocked = unlockedIds.includes(achievement.id);
+    const item = document.createElement('div');
+    item.className = `popup__achievement-item ${isUnlocked ? 'popup__achievement-item--unlocked' : 'popup__achievement-item--locked'}`;
+    item.innerHTML = `
+      <span class="popup__achievement-icon">${achievement.icon}</span>
+      <span class="popup__achievement-name">${achievement.name}</span>
+    `;
+    container.appendChild(item);
+  });
+}
+
+/**
+ * 加载成就列表（同时刷新主网格与二级面板网格）
  */
 async function loadAchievements() {
   try {
     const data = await chrome.runtime.sendMessage({ action: 'getAchievements' });
     if (data) {
-      // 清空网格
-      achievementGrid.innerHTML = '';
-
       // 从 AchievementSystem 获取成就定义（避免重复定义）
       const achievementDefs = await chrome.runtime.sendMessage({ action: 'getAchievementDefinitions' });
       if (!achievementDefs) return;
 
-      achievementProgress.textContent = `${data.unlocked.length}/${achievementDefs.length}`;
+      // 主面板进度文本
+      if (achievementProgress) {
+        achievementProgress.textContent = `${data.unlocked.length}/${achievementDefs.length}`;
+      }
 
       const unlockedIds = (data.unlocked || []).map(u => u.id);
 
-      achievementDefs.forEach(achievement => {
-        const isUnlocked = unlockedIds.includes(achievement.id);
-        const item = document.createElement('div');
-        item.className = `popup__achievement-item ${isUnlocked ? 'popup__achievement-item--unlocked' : 'popup__achievement-item--locked'}`;
-        item.innerHTML = `
-          <span class="popup__achievement-icon">${achievement.icon}</span>
-          <span class="popup__achievement-name">${achievement.name}</span>
-        `;
-        achievementGrid.appendChild(item);
-      });
+      // 刷新主网格与二级面板网格，确保重置后两者都回到未激活状态
+      renderAchievementGrid(achievementGrid, achievementDefs, unlockedIds);
+      renderAchievementGrid(document.getElementById('achievement-grid'), achievementDefs, unlockedIds);
     }
   } catch (error) {
     console.error('[Popup] Failed to load achievements:', error);
@@ -234,7 +249,7 @@ async function loadAchievements() {
 
 // ===== Event Listeners =====
 
-async function startPracticeInActiveTab(mode, difficulty) {
+async function startPracticeInActiveTab(mode) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) {
     throw new Error('未找到当前活动标签页');
@@ -243,12 +258,11 @@ async function startPracticeInActiveTab(mode, difficulty) {
   return chrome.runtime.sendMessage({
     action: 'startOverlay',
     mode,
-    difficulty,
     tabId: tab.id
   });
 }
 
-async function startPracticeInNewTab(mode, difficulty) {
+async function startPracticeInNewTab(mode) {
   const url = chrome.runtime.getURL('overlay/overlay.html');
   const tab = await chrome.tabs.create({ url });
   // 等待新标签页加载完成后发送 START_SESSION
@@ -256,7 +270,7 @@ async function startPracticeInNewTab(mode, difficulty) {
     if (t.id !== tab.id) return;
     if (info.status === 'complete') {
       chrome.tabs.onUpdated.removeListener(listener);
-      chrome.tabs.sendMessage(t.id, { type: 'START_SESSION', data: { mode, difficulty } });
+      chrome.tabs.sendMessage(t.id, { type: 'START_SESSION', data: { mode } });
     }
   });
   return { success: true, tabId: tab.id };
@@ -274,16 +288,9 @@ async function startPracticeInNewTab(mode, difficulty) {
 
     // 发送消息启动 overlay
     const mode = btn.dataset.mode;
-    let difficulty = 'normal';
-    try {
-      const settings = await chrome.runtime.sendMessage({ action: 'getSettings' });
-      difficulty = settings?.difficulty || 'normal';
-    } catch (error) {
-      console.warn('[Popup] Failed to fetch settings, using default:', error);
-    }
 
     try {
-      const overlayResponse = await startPracticeInNewTab(mode, difficulty);
+      const overlayResponse = await startPracticeInNewTab(mode);
       if (overlayResponse && overlayResponse.error) {
         console.error('[Popup] startPracticeInNewTab failed:', overlayResponse.error);
       }
@@ -329,13 +336,6 @@ settingSound.addEventListener('change', () => {
   });
 });
 
-settingDifficulty.addEventListener('change', () => {
-  chrome.runtime.sendMessage({
-    action: 'saveSettings',
-    settings: { difficulty: settingDifficulty.value }
-  });
-});
-
 // 重置设置
   btnResetSettings.addEventListener('click', async () => {
     if (confirm('确定要重置所有设置吗？')) {
@@ -375,25 +375,25 @@ settingDifficulty.addEventListener('change', () => {
         icon: '🎯',
         title: '难度规则',
         items: [
-          '三种难度影响练习文本长度与评分系数：简单、普通、困难',
-          '难度系数：简单 0.8×、普通 1.0×、困难 1.5×（影响经验获取）',
-          '字母练习支持难度筛选，单词/句子按所选难度随机抽取'
+          '难度已自动化：系统根据阶段进度自动调整，无需手动选择',
+          '基准键阶段起步平缓，后续阶段难度自动递增',
+          '字母练习按阶段自动匹配合适的难度系数'
         ]
       },
       phase: {
         icon: '📈',
         title: '阶段规则',
         items: [
-          '字母练习分 8 个阶段，难度递增：基准键 → 单指列 → 单指列往返 → 跨指 → 双手配对 → 字母+数字 → 字母+符号 → 全键盘',
+          '字母练习分 8 个阶段：基准键 → 同指相邻 → 单指列 → 跨指相邻 → 双指配对 → 随机字母 → 字母符号 → 全键盘',
           '每阶段需达标（准确率 + WPM 阈值），通过一个批次即可进入下一阶段，未达标将自动回落基准键阶段',
-          '通过阶段可自动提升难度，达成成就解锁'
+          '通过阶段自动提升难度，达成成就解锁'
         ]
       },
       progress: {
         icon: '⭐',
         title: '进度规则',
         items: [
-          '每按对一个键 +1 EXP，每场练习额外 +5 EXP（按难度系数加成）',
+          '每按对一个键 +1 EXP，每场练习额外 +5 EXP',
           '共 25 个等级，从 Lv.1 打字新手 到 Lv.25 宗师',
           '成就系统：48 项成就，涵盖按键数、连击、WPM、准确率、时长、等级、阶段等'
         ]
@@ -405,17 +405,17 @@ settingDifficulty.addEventListener('change', () => {
         icon: '🎯',
         title: 'Difficulty Rules',
         items: [
-          'Three difficulty levels affect practice text length and scoring multipliers: Easy, Normal, Hard',
-          'Difficulty multipliers: Easy 0.8×, Normal 1.0×, Hard 1.5× (affect EXP gain)',
-          'Letters mode supports difficulty filtering; words/sentences are drawn randomly per selected difficulty'
+          'Difficulty is now automatic: system adjusts based on phase progress, no manual selection needed',
+          'Home Row phase starts gentle; subsequent phases auto-scale difficulty',
+          'Letter practice auto-matches appropriate difficulty factor per phase'
         ]
       },
       phase: {
         icon: '📈',
         title: 'Phase Rules',
         items: [
-          'Letters mode has 8 progressive phases: home row → single-finger columns → single-finger hands → cross-finger → two-hand pairs → letters+numbers → letters+symbols → full keyboard',
-          'Each phase requires meeting thresholds (accuracy + WPM); one passing batch advances you. Failing will auto-revert to the home row phase',
+          'Letters mode has 8 progressive phases: Home Row → Same Finger Adjacent → Single Finger Columns → Cross Finger Adjacent → Two-Hand Pairs → Random Letters → Letters + Symbols → Full Keyboard',
+          'Each phase requires meeting thresholds (accuracy + WPM); one passing batch advances you. Failing auto-reverts to Home Row phase',
           'Completing phases auto-raises difficulty and unlocks achievements'
         ]
       },
@@ -423,7 +423,7 @@ settingDifficulty.addEventListener('change', () => {
         icon: '⭐',
         title: 'Progress Rules',
         items: [
-          '+1 EXP per correct keystroke, +5 EXP per session (multiplied by difficulty factor)',
+          '+1 EXP per correct keystroke, +5 EXP per session',
           '25 levels total, from Lv.1 Typing Beginner to Lv.25 Grandmaster',
           'Achievement system: 48 achievements across keystrokes, streaks, WPM, accuracy, playtime, levels, and phases'
         ]

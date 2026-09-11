@@ -137,36 +137,6 @@
   margin-top: 2px;
 }
 
-.overlay__difficulty {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  padding: 2px;
-}
-
-.overlay__diff-btn {
-  padding: 4px 10px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--overlay-text-light);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.overlay__diff-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.overlay__diff-btn--active {
-  background: rgba(255, 255, 255, 0.35);
-  font-weight: 600;
-}
-
 .overlay__stats {
   display: flex;
   gap: 16px;

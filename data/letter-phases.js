@@ -72,6 +72,7 @@ function alphabetPrefix(count) {
 }
 
 // 8 个阶段定义：键位范围 + 组合规则双递进
+// 数字与符号跨多阶段逐步引入，避免难度悬崖
 const LETTER_PHASES = [
   {
     id: 0,
@@ -91,7 +92,7 @@ const LETTER_PHASES = [
     combine: 'adjacent',
     batchSize: 12,
     describe: '基准键 + 上排，同指上下相邻组合',
-    require: { accuracy: 0.85, wpm: 15, minBatches: 1 }
+    require: { accuracy: 0.85, wpm: 14, minBatches: 1 }
   },
   {
     id: 2,
@@ -101,7 +102,7 @@ const LETTER_PHASES = [
     combine: 'columns',
     batchSize: 14,
     describe: '加入下排，逐列单指往返练习',
-    require: { accuracy: 0.85, wpm: 18, minBatches: 1 }
+    require: { accuracy: 0.85, wpm: 16, minBatches: 1 }
   },
   {
     id: 3,
@@ -111,47 +112,47 @@ const LETTER_PHASES = [
     combine: 'cross',
     batchSize: 16,
     describe: '前两排全键，跨指相邻组合，左右手交替',
-    require: { accuracy: 0.85, wpm: 20, minBatches: 1 }
+    require: { accuracy: 0.85, wpm: 18, minBatches: 1 }
   },
   {
     id: 4,
-    name: '双指配对',
-    nameEn: 'Two-Hand Pairs',
-    keys: 'abcdefghijklmnopqrstuvwxyz',
+    name: '双指配对·入门数字',
+    nameEn: 'Two-Hand Pairs · Intro Numbers',
+    keys: 'abcdefghijklmnopqrstuvwxyz1234',
     combine: 'pairs',
     batchSize: 16,
-    describe: '全字母，左右手指配对组合',
-    require: { accuracy: 0.85, wpm: 22, minBatches: 1 }
+    describe: '全字母左右手配对 + 数字 1234 逐步引入',
+    require: { accuracy: 0.85, wpm: 20, minBatches: 1 }
   },
   {
     id: 5,
-    name: '随机字母',
-    nameEn: 'Random Letters',
+    name: '随机字母·进阶数字',
+    nameEn: 'Random Letters · More Numbers',
     keys: 'abcdefghijklmnopqrstuvwxyz1234567890',
     combine: 'random',
     batchSize: 16,
-    describe: '全字母乱序 + 数字行随机序列',
-    require: { accuracy: 0.88, wpm: 25, minBatches: 1 }
+    describe: '全字母乱序 + 全数字行 0-9',
+    require: { accuracy: 0.85, wpm: 22, minBatches: 1 }
   },
   {
     id: 6,
-    name: '字母符号',
-    nameEn: 'Letters + Symbols',
-    keys: 'abcdefghijklmnopqrstuvwxyz1234567890-=[]\\;:.',
+    name: '字母数字·常用符号',
+    nameEn: 'Letters + Numbers · Common Symbols',
+    keys: 'abcdefghijklmnopqrstuvwxyz1234567890-=[]\\;:\'',
     combine: 'random',
     batchSize: 20,
-    describe: '全字母 + 数字 + 符号，长随机序列',
-    require: { accuracy: 0.88, wpm: 30, minBatches: 1 }
+    describe: '字母数字 + 常用符号 -=[]\\;\' 引入',
+    require: { accuracy: 0.88, wpm: 25, minBatches: 1 }
   },
   {
     id: 7,
     name: '全键盘',
     nameEn: 'Full Keyboard',
-    keys: 'abcdefghijklmnopqrstuvwxyz1234567890-=[]\\;:.,/\'`,',
+    keys: 'abcdefghijklmnopqrstuvwxyz1234567890-=[]\\;:\'.,/\`',
     combine: 'random',
     batchSize: 24,
-    describe: '全键位连续随机，自由组合',
-    require: { accuracy: 0.90, wpm: 35, minBatches: 1 }
+    describe: '全键位连续随机，含所有符号',
+    require: { accuracy: 0.88, wpm: 28, minBatches: 1 }
   }
 ];
 

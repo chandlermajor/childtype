@@ -21,7 +21,6 @@ async function initSoundManager() {
 let state = {
   active: false,
   mode: 'letters',
-  difficulty: 'normal',
   letterPhase: 0,
   letterPhaseName: '',
   letterBatchPassCount: 0,
@@ -47,33 +46,15 @@ let state = {
   sessionStats: null
 };
 
-// ===== Word/Sentence Data (minimal for Phase 0) =====
-const WORDS_EASY = ['cat', 'dog', 'hat', 'run', 'big', 'red', 'sun', 'cup', 'bus', 'box'];
-const WORDS_MEDIUM = ['apple', 'house', 'water', 'happy', 'music', 'school', 'tree', 'bird', 'fish', 'cake'];
-const WORDS_HARD = ['beautiful', 'challenge', 'education', 'computer', 'elephant', 'friendship', 'mountain', 'notebook'];
-const SENTENCES_SHORT = [
-  'I like cats.',
-  'The sun is hot.',
-  'She runs fast.',
-  'He reads books.',
-  'We play games.'
-];
-const SENTENCES_MEDIUM = [
-  'The quick brown fox jumps over the lazy dog.',
-  'She sells sea shells by the sea shore.',
-  'How much wood would a woodchuck chuck.'
-];
-
 // Letter pool for random mode
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 const LETTERS_PER_BATCH = 16;
 
 // 字母练习批处理状态
-let lettersBatch = [];   // 当前批次的字母数组（共 16 个）
-let lettersBatchIndex = 0;  // 当前进度
-let lettersMasterBatch = []; // 主批次：保持同一组字母，只打乱顺序
-let lettersBatchNeedsRefresh = false; // 标记批次是否已完成，需要刷新
-let lettersBatchSettled = false; // 防止重复结算批次统计
+  let lettersBatch = [];   // 当前批次的字母数组（共 16 个）
+  let lettersBatchIndex = 0;  // 当前进度
+  let lettersMasterBatch = []; // 主批次：保持同一组字母，只打乱顺序
+  let lettersBatchSettled = false; // 防止重复结算批次统计
 
 // ===== Finger / Phase helpers =====
 const PROGRESS_LS_KEY = 'childtype-progress';
@@ -150,7 +131,6 @@ let overlayAccuracy = null;
 let overlayStreak = null;
 let overlayTimer = null;
 let overlayPhaseLabel = null;
-let difficultySwitch = null;
 let btnPause = null;
 let btnClose = null;
 let notification = null;
@@ -169,11 +149,6 @@ function createOverlayContainer() {
     <div class="overlay__topbar">
       <div class="overlay__mode-label" id="overlay-mode-label">字母练习</div>
       <div class="overlay__phase" id="overlay-phase-label">阶段 1/8 · 基准键</div>
-      <div class="overlay__difficulty" id="overlay-difficulty-switch">
-        <button class="overlay__diff-btn" data-diff="easy">简单</button>
-        <button class="overlay__diff-btn overlay__diff-btn--active" data-diff="normal">普通</button>
-        <button class="overlay__diff-btn" data-diff="hard">困难</button>
-      </div>
       <div class="overlay__stats">
         <div class="overlay__stat">
           <span class="overlay__stat-value" id="overlay-wpm">0</span>
@@ -306,7 +281,6 @@ async function init() {
   overlayStreak = document.getElementById('overlay-streak');
   overlayTimer = document.getElementById('overlay-timer');
   overlayPhaseLabel = document.getElementById('overlay-phase-label');
-  difficultySwitch = document.getElementById('overlay-difficulty-switch');
   btnPause = document.getElementById('btn-pause');
   btnClose = document.getElementById('btn-close');
   notification = document.getElementById('notification');
@@ -325,16 +299,6 @@ async function init() {
   // 按钮事件
   if (btnClose) btnClose.addEventListener('click', stopOverlay);
   if (btnPause) btnPause.addEventListener('click', togglePause);
-
-  // 难度切换按钮
-  if (difficultySwitch) {
-    const diffBtns = difficultySwitch.querySelectorAll('.overlay__diff-btn');
-    diffBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        setDifficulty(btn.dataset.diff);
-      });
-    });
-  }
 
   // 快捷键
   document.addEventListener('keydown', (e) => {
@@ -369,14 +333,13 @@ async function handleMessage(message) {
     case 'START_SESSION':
       // Store the mode so it's available even if keys are pressed before session starts
       state.mode = message.data.mode || 'letters';
-      state.difficulty = message.data.difficulty || 'normal';
       state.letterPhase = message.data.letterPhase || 0;
       if (message.data.letterPhase) {
         const letterPhases = await import('../data/letter-phases.js');
         const ph = letterPhases.getPhase(state.letterPhase);
         if (ph) state.letterPhaseName = ph.name;
       }
-      await startSession(message.data.mode, message.data.difficulty);
+      await startSession(message.data.mode);
       break;
     case 'STOP_SESSION':
       stopOverlay();
@@ -420,21 +383,8 @@ async function handleMessage(message) {
  * 设置难度并刷新 UI
  * @param {string} diff - easy/normal/hard
  */
-function setDifficulty(diff) {
-  if (!['easy', 'normal', 'hard'].includes(diff)) return;
-  state.difficulty = diff;
-  if (difficultySwitch) {
-    const diffBtns = difficultySwitch.querySelectorAll('.overlay__diff-btn');
-    diffBtns.forEach(btn => {
-      btn.classList.toggle('overlay__diff-btn--active', btn.dataset.diff === diff);
-    });
-  }
-  updatePhaseLabel();
-  console.log('[Overlay] Difficulty set to:', diff);
-}
-
 /**
- * 更新顶部阶段 + 难度标签
+ * 更新顶部阶段标签
  */
 function updatePhaseLabel() {
   if (overlayModeLabel) {
@@ -445,9 +395,8 @@ function updatePhaseLabel() {
 /**
  * 开始练习会话
  * @param {string} mode - 练习模式
- * @param {string} difficulty - 难度
  */
-async function startSession(mode, difficulty) {
+async function startSession(mode) {
   state.active = true;
   
   // 确保 overlay 可见（移除 hidden 类）
@@ -461,7 +410,6 @@ async function startSession(mode, difficulty) {
   });
   
   state.mode = mode;
-  state.difficulty = difficulty;
   state.letterPhase = 0;
   state.letterPhaseName = '基准键';
   state.letterBatchPassCount = 0;
@@ -486,7 +434,6 @@ async function startSession(mode, difficulty) {
   lettersBatch = [];
   lettersBatchIndex = 0;
   lettersMasterBatch = [];
-  lettersBatchNeedsRefresh = false;
   generateBatch();
 
   // 更新 UI
@@ -509,7 +456,7 @@ async function startSession(mode, difficulty) {
   // 高亮第一个键
   highlightNextKey();
 
-  console.log(`[Overlay] Session started: mode=${mode}, difficulty=${difficulty}`);
+  console.log(`[Overlay] Session started: mode=${mode}`);
 }
 
 /**
@@ -587,15 +534,6 @@ async function setNextTarget() {
       state.batchIndex = 0;
       state.target = state.batchTarget[0] || null;
       break;
-    case 'words':
-      state.target = getRandomWord();
-      state._wordIndex = 0;
-      break;
-    case 'sentences':
-      state.target = getRandomSentence();
-      state._wordIndex = 0;
-      state._charIndex = 0;
-      break;
     case 'free':
       state.target = null; // 自由模式不限制目标
       break;
@@ -646,18 +584,6 @@ function updateTargetDisplay() {
       }
       return `<span class="target-pending">${ch.toUpperCase()}</span>`;
     }).join(' ');
-  } else if (state.mode === 'words') {
-    const word = typeof state.target === 'object' ? state.target.text : state.target;
-    const display = word.split('').map((ch, i) =>
-      i < state._wordIndex ? ch : '_'
-    ).join(' ');
-    targetLetter.textContent = display;
-  } else if (state.mode === 'sentences') {
-    const sentence = typeof state.target === 'object' ? state.target.text : state.target;
-    const display = sentence.split('').map((ch, i) =>
-      i < state._charIndex ? ch : '·'
-    ).join('');
-    targetLetter.textContent = display;
   }
 }
 
@@ -671,7 +597,7 @@ function handleKeyDown(e) {
     // The service worker sends START_SESSION, but we also allow keypress to start it
     // as a fallback in case the message was delayed or lost
     if (state.mode) {
-      startSession(state.mode, state.difficulty).catch(err => {
+      startSession(state.mode).catch(err => {
         console.error('[Overlay] Failed to start session on keypress:', err);
       });
     }
@@ -682,12 +608,8 @@ function handleKeyDown(e) {
 
   const key = e.key;
 
-  // 忽略功能键（空格在单词/句子模式下有效）
+  // 忽略功能键（Shift、Control 等）
   if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab', 'Escape'].includes(key)) {
-    // 特殊处理：Space 在单词/句子模式下也算有效按键
-    if (key === ' ' && ['words', 'sentences'].includes(state.mode)) {
-      processKey(' ', key);
-    }
     return;
   }
 
@@ -716,9 +638,7 @@ function handleKeyDown(e) {
  * @param {string} code - 按键代码
  */
 async function processKey(pressedKey, code) {
-  let expected = typeof state.target === 'object'
-    ? state.target.text[state.mode === 'sentences' ? (state._charIndex || 0) : (state._wordIndex || 0)]
-    : state.target;
+  let expected = typeof state.target === 'object' ? state.target.text : state.target;
 
   if (!expected) {
     await setNextTarget();
@@ -776,27 +696,10 @@ async function processKey(pressedKey, code) {
         if (state.mode === 'ordered') {
           stopOverlay();
         } else {
-          lettersBatchNeedsRefresh = true;
+          console.log('[Overlay] Batch completed (final correct key). batchIndex=%d length=%d phase=%d',
+            state.batchIndex, state.batchTarget.length, state.letterPhase);
           await setNextTarget();
         }
-      } else {
-        updateTargetDisplay();
-        highlightNextKey();
-      }
-    } else if (state.mode === 'words') {
-      state._wordIndex++;
-      const word = typeof state.target === 'object' ? state.target.text : state.target;
-      if (state._wordIndex >= word.length) {
-        await setNextTarget();
-      } else {
-        updateTargetDisplay();
-        highlightNextKey();
-      }
-    } else if (state.mode === 'sentences') {
-      state._charIndex++;
-      const sentence = typeof state.target === 'object' ? state.target.text : state.target;
-      if (state._charIndex >= sentence.length) {
-        await setNextTarget();
       } else {
         updateTargetDisplay();
         highlightNextKey();
@@ -899,8 +802,6 @@ function getModeLabel(mode) {
   const labels = {
     letters: '🔤 字母练习',
     ordered: '🔤 顺序字母',
-    words: '📖 单词练习',
-    sentences: '📋 句子练习',
     free: '✍️ 自由打字',
     finger: '👆 指法练习'
   };
@@ -928,7 +829,6 @@ async function generateBatch() {
     phaseId, layoutName, batchSize
   );
   lettersBatchIndex = 0;
-  lettersBatchNeedsRefresh = false;
   state.batchStartTime = Date.now();
   state.batchTotalKeystrokes = 0;
   state.batchCorrectKeystrokes = 0;
@@ -941,45 +841,49 @@ async function generateBatch() {
  * @returns {string[]}
  */
 async function getBatchLetters() {
-  if (lettersBatch.length === 0 || lettersBatchNeedsRefresh) {
-    if (lettersBatch.length > 0) {
-      const batchDurationSec = state.batchStartTime
-        ? (Date.now() - state.batchStartTime) / 1000
-        : 0;
-      const batchMinutes = batchDurationSec > 0
-        ? Math.round((batchDurationSec / 60) * 10) / 10
-        : 0;
-      const batchTotal = state.batchTotalKeystrokes || 0;
-      const batchCorrect = state.batchCorrectKeystrokes || 0;
-      const batchAccuracy = batchTotal > 0
-        ? Math.round((batchCorrect / batchTotal) * 1000) / 10
-        : 0;
-      const batchWpm = state.startTime && batchTotal >= 5 && batchDurationSec > 0
-        ? Math.round((batchCorrect / 5) / (batchDurationSec / 60) * 10) / 10
-        : 0;
+  // 每批次必结算，不再依赖 lettersBatchNeedsRefresh 标志
+  const batchDurationSec = state.batchStartTime
+    ? (Date.now() - state.batchStartTime) / 1000
+    : 0;
+  const batchTotal = state.batchTotalKeystrokes || 0;
+  const batchCorrect = state.batchCorrectKeystrokes || 0;
 
-      // 阶段完成自动升难度：准确率 + WPM 双达标
-      await checkPhaseCompletion(batchAccuracy, batchWpm);
+  // 只有非首批（已有数据）才结算上一批
+  if (lettersBatch.length > 0 && batchTotal > 0) {
+    const batchAccuracy = batchTotal > 0
+      ? Math.round((batchCorrect / batchTotal) * 1000) / 10
+      : 0;
 
-      chrome.runtime.sendMessage({
-        action: 'lettersBatchStarted',
-        batchIndex: lettersBatchIndex,
-        prevBatch: lettersBatch,
-        prevCount: lettersBatchIndex,
-        correct: batchCorrect,
-        total: batchTotal,
-        batchAccuracy: batchAccuracy,
-        batchWpm: batchWpm,
-        batchMinutes: batchMinutes
-      });
-    }
-    return generateBatch();
+    // 短批次 WPM 修正：batchDurationSec 太小时回退到整体 WPM
+    const overallWpm = calculateWPM();
+    const batchWpm = state.startTime && batchTotal >= 5 && batchDurationSec >= 0.5
+      ? Math.round((batchCorrect / 5) / (batchDurationSec / 60) * 10) / 10
+      : overallWpm;  // 时间太短用整体 WPM，避免归零误判
+
+    console.log('[Overlay] Batch settle. total=%d correct=%d accuracy=%.1f wpm=%.1f dur=%.2fs phase=%d',
+      batchTotal, batchCorrect, batchAccuracy, batchWpm, batchDurationSec, state.letterPhase);
+
+    // 阶段判定：达标升阶，不达标降阶
+    await checkPhaseCompletion(batchAccuracy, batchWpm);
+
+    chrome.runtime.sendMessage({
+      action: 'lettersBatchStarted',
+      batchIndex: lettersBatchIndex,
+      prevBatch: lettersBatch,
+      prevCount: lettersBatchIndex,
+      correct: batchCorrect,
+      total: batchTotal,
+      batchAccuracy: batchAccuracy,
+      batchWpm: batchWpm,
+      batchMinutes: batchDurationSec / 60
+    });
   }
-  return lettersBatch;
+
+  return generateBatch();
 }
 
 /**
- * 检查阶段是否达标，达标则自动升难度或进入下一阶段
+ * 检查阶段是否达标，达标升阶，不达标降阶
  * @param {number} accuracy 批次准确率 (0-100)
  * @param {number} wpm 批次 WPM
  */
@@ -988,16 +892,16 @@ async function checkPhaseCompletion(accuracy, wpm) {
   const phase = letterPhases.getPhase(state.letterPhase);
   if (!phase) return;
 
-  const wpmBaseline = state.difficulty === 'easy' ? 0.7
-    : state.difficulty === 'hard' ? 1.2
-    : 1.0;
-  const wpmTarget = (phase.require.wpm || 20) * wpmBaseline;
-
   const passAccuracy = accuracy >= (phase.require.accuracy || 0.85) * 100;
-  const passWpm = wpm >= wpmTarget;
+  const passWpm = wpm >= (phase.require.wpm || 20);
+
+  console.log('[Overlay] checkPhaseCompletion: phase=%s require(acc=%.2f wpm=%d) acc=%.1f wpm=%.1f passAcc=%s passWpm=%s',
+    state.letterPhaseName, phase.require.accuracy || 0.85, phase.require.wpm || 20,
+    accuracy, wpm, passAccuracy, passWpm);
 
   if (passAccuracy && passWpm) {
     state.letterBatchPassCount++;
+    console.log('[Overlay] PASS. passCount=%d minBatches=%d', state.letterBatchPassCount, phase.require.minBatches || 1);
     if (state.letterBatchPassCount >= (phase.require.minBatches || 1)) {
       await advancePhase();
     }
@@ -1008,106 +912,47 @@ async function checkPhaseCompletion(accuracy, wpm) {
       state.letterBatchPassCount = 0;
       const home = letterPhases.getPhase(0);
       state.letterPhaseName = home ? home.name : '基准键';
-      message = '未达标，回落到基准键阶段';
-      showNotification('⚠️', message);
+      showNotification('⚠️', '未达标，回落到基准键阶段');
       updatePhaseLabel();
       await refreshBatchForPhase();
-      return;
     }
     state.letterBatchPassCount = 0;
   }
 }
 
 /**
- * 推进阶段：先升难度档，难度达标后再升阶段
+ * 推进到下一阶段（共 8 阶段 0-7）
  */
 async function advancePhase() {
   const letterPhases = await import('../data/letter-phases.js');
-  const maxPhase = letterPhases.phaseCount() - 1;
+  const maxPhase = letterPhases.phaseCount() - 1;  // 7
 
-  let message = '';
-  let icon = '🎉';
-
-  if (state.difficulty !== 'hard' && state.letterPhase >= maxPhase) {
-    // 当前阶段已满，且难度未达最高：升难度档
-    const diffOrder = ['easy', 'normal', 'hard'];
-    const idx = diffOrder.indexOf(state.difficulty);
-    state.difficulty = diffOrder[idx + 1];
-    updateDifficultyUI();
-    message = `阶段 ${state.letterPhase + 1} 完成！进入【${state.letterPhaseName}】`;
-    showNotification(icon, message);
-    updatePhaseLabel();
-    await refreshBatchForPhase();
-  } else if (state.difficulty === 'hard' && state.letterPhase < maxPhase) {
-    // 难度已最高，进入下一阶段
-    state.letterPhase++;
+  if (state.letterPhase >= maxPhase) {
+    // 已满级
+    showNotification('🏆', `所有阶段已完成！当前【${state.letterPhaseName}】`);
     state.letterBatchPassCount = 0;
-    const newPhase = letterPhases.getPhase(state.letterPhase);
-    state.letterPhaseName = newPhase ? newPhase.name : '';
-    message = `🎊 突破阶段 ${state.letterPhase}！进入【${state.letterPhaseName}】`;
-    showNotification(icon, message);
-    updatePhaseLabel();
-    await refreshBatchForPhase();
-  } else {
-    // 已满级：提示已完成所有阶段
-    message = `🏆 所有阶段已完成！当前【${state.letterPhaseName}】困难档`;
-    showNotification('🏆', message);
-    state.letterBatchPassCount = 0;
+    return;
   }
+
+  // 升阶
+  state.letterPhase++;
+  state.letterBatchPassCount = 0;
+  const newPhase = letterPhases.getPhase(state.letterPhase);
+  state.letterPhaseName = newPhase ? newPhase.name : '';
+  showNotification('🎊', `突破阶段 ${state.letterPhase}！进入【${state.letterPhaseName}】`);
+  updatePhaseLabel();
+  await refreshBatchForPhase();
 }
 
 /**
  * 为当前阶段刷新批次
  */
 async function refreshBatchForPhase() {
-  lettersBatchNeedsRefresh = true;
   await generateBatch();
-}
-
-/**
- * 更新难度切换按钮 UI
- */
-function updateDifficultyUI() {
-  if (difficultySwitch) {
-    const diffBtns = difficultySwitch.querySelectorAll('.overlay__diff-btn');
-    diffBtns.forEach(btn => {
-      btn.classList.toggle('overlay__diff-btn--active', btn.dataset.diff === state.difficulty);
-    });
-  }
 }
 
 function getRandomLetter() {
   return LETTERS[Math.floor(Math.random() * LETTERS.length)];
-}
-
-/**
- * 获取随机单词
- * @returns {Object} { text, difficulty }
- */
-function getRandomWord() {
-  let pool;
-  switch (state.difficulty) {
-    case 'easy': pool = WORDS_EASY; break;
-    case 'hard': pool = WORDS_HARD; break;
-    default: pool = Math.random() < 0.5 ? WORDS_EASY.concat(WORDS_MEDIUM) : WORDS_MEDIUM;
-  }
-  const text = pool[Math.floor(Math.random() * pool.length)];
-  return { text, difficulty: state.difficulty };
-}
-
-/**
- * 获取随机句子
- * @returns {Object} { text, difficulty }
- */
-function getRandomSentence() {
-  let pool;
-  switch (state.difficulty) {
-    case 'easy': pool = SENTENCES_SHORT; break;
-    case 'hard': pool = SENTENCES_MEDIUM; break;
-    default: pool = Math.random() < 0.5 ? SENTENCES_SHORT : SENTENCES_MEDIUM;
-  }
-  const text = pool[Math.floor(Math.random() * pool.length)];
-  return { text, difficulty: state.difficulty };
 }
 
 // ===== Virtual Keyboard Interaction =====
@@ -1125,12 +970,8 @@ function highlightNextKey() {
   let keyChar;
   if (state.mode === 'letters') {
     keyChar = state.batchTarget[state.batchIndex];
-  } else if (state.mode === 'words') {
-    keyChar = state.target.text[state._wordIndex || 0];
-  } else if (state.mode === 'sentences') {
-    keyChar = state.target.text[state._charIndex || 0];
   } else {
-    keyChar = typeof state.target === 'object' ? null : state.target;
+    keyChar = typeof state.target === 'object' ? state.target.text : state.target;
   }
 
   if (!keyChar) return;

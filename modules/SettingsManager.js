@@ -1,6 +1,7 @@
 /**
  * SettingsManager — 用户设置管理
- * 管理用户偏好设置（键盘布局、字体大小、主题、音效、难度）
+ * 管理用户偏好设置（键盘布局、字体大小、主题、音效）
+ * 难度现已自动化，不再作为用户设置项
  * @module modules/SettingsManager
  */
 
@@ -8,8 +9,7 @@ import store from './StorageManager.js';
 
 const VALID_LAYOUTS = ['QWERTY', 'AZERTY'];
 const VALID_THEMES = ['light', 'dark', 'eye'];
-const VALID_DIFFICULTIES = ['easy', 'normal', 'hard'];
-const VALID_MODES = ['letters', 'ordered', 'words', 'sentences', 'free', 'finger'];
+const VALID_MODES = ['letters', 'ordered', 'free', 'finger'];
 const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48];
 
 /**
@@ -21,7 +21,6 @@ const validators = {
   fontSize: (v) => Number.isInteger(v) && FONT_SIZES.includes(v),
   theme: (v) => VALID_THEMES.includes(v),
   soundEnabled: (v) => typeof v === 'boolean',
-  difficulty: (v) => VALID_DIFFICULTIES.includes(v),
   defaultMode: (v) => VALID_MODES.includes(v)
 };
 

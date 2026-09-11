@@ -17,8 +17,7 @@ import { aggregateFingerStats, pruneKeyProficiency } from '../modules/FingerProf
 let currentOverlayState = {
   active: false,
   tabId: null,
-  mode: null,
-  difficulty: null
+  mode: null
 };
 
 /**
@@ -174,7 +173,7 @@ async function handleMessage(message, sender) {
       return await levelSystem.getCurrentLevel();
 
     case 'startOverlay': {
-      const { mode, difficulty, tabId } = message;
+      const { mode, tabId } = message;
       const targetTabId = tabId ?? (await getActiveTabId());
       const activeMode = mode || 'letters';
       await store.update('progress', (current) => {
@@ -183,12 +182,12 @@ async function handleMessage(message, sender) {
         delete updated[activeMode];
         return { ...current, liveStats: updated };
       });
-      await startOverlayInTab(targetTabId, activeMode, difficulty || 'normal');
+      await startOverlayInTab(targetTabId, activeMode);
       return { success: true, tabId: targetTabId };
     }
 
     case 'stopOverlay': {
-      currentOverlayState = { active: false, tabId: null, mode: null, difficulty: null };
+      currentOverlayState = { active: false, tabId: null, mode: null };
       await store.update('progress', (current) => {
         if (!current.liveStats) return current;
         return { ...current, liveStats: {} };
@@ -368,9 +367,8 @@ async function injectOverlayAssets(tabId) {
  * 在指定标签页启动 overlay
  * @param {number} tabId - 目标标签页 ID
  * @param {string} mode - 练习模式
- * @param {string} difficulty - 难度
  */
-async function startOverlayInTab(tabId, mode = 'letters', difficulty = 'normal') {
+async function startOverlayInTab(tabId, mode = 'letters') {
   // 无法在特权页面（chrome:// 等）注入脚本或发送消息，直接跳过
   const tab = await chrome.tabs.get(tabId).catch(() => null);
   if (tab && tab.url && tab.url.startsWith('chrome://')) {
@@ -378,7 +376,7 @@ async function startOverlayInTab(tabId, mode = 'letters', difficulty = 'normal')
     return;
   }
   await injectOverlayAssets(tabId);
-  currentOverlayState = { active: true, tabId, mode, difficulty };
+  currentOverlayState = { active: true, tabId, mode };
   console.info('[ChildType] Overlay started in tab:', tabId, 'mode:', mode);
 
   // 等待内容脚本初始化完成后再广播，避免消息在 onMessage 注册前发出
@@ -386,7 +384,7 @@ async function startOverlayInTab(tabId, mode = 'letters', difficulty = 'normal')
   if (!ack?.pong) {
     console.warn('[ChildType] Overlay not ready, sending START_SESSION directly');
   }
-  await broadcastToOverlay({ type: 'START_SESSION', data: { mode, difficulty } });
+  await broadcastToOverlay({ type: 'START_SESSION', data: { mode } });
 }
 
 /**
@@ -395,7 +393,7 @@ async function startOverlayInTab(tabId, mode = 'letters', difficulty = 'normal')
 async function toggleOverlay() {
   if (currentOverlayState.active) {
     await broadcastToOverlay({ type: 'STOP_SESSION' });
-    currentOverlayState = { active: false, tabId: null, mode: null, difficulty: null };
+    currentOverlayState = { active: false, tabId: null, mode: null };
   } else {
     const tabId = await getActiveTabId();
     await startOverlayInTab(tabId);

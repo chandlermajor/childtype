@@ -1,6 +1,8 @@
 /**
  * StorageManager — Chrome Storage 封装
- * 管理所有 chrome.storage.sync 的读写操作
+ * 管理所有 chrome.storage.local 的读写操作
+ * 使用 local 而非 sync：progress 为高频会话数据，sync 的每分钟写入配额（~100/min）
+ * 会被 recordKey 的逐键写入轻易突破，导致 MAX_WRITE_OPERATIONS_PER_MINUTE 错误。
  * @module modules/StorageManager
  */
 
@@ -12,7 +14,6 @@ const DEFAULTS = {
     fontSize: 16,
     theme: 'light',
     soundEnabled: true,
-    difficulty: 'normal',
     defaultMode: 'letters'
   },
   progress: {
@@ -24,8 +25,6 @@ const DEFAULTS = {
     modeStats: {
       letters: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
       ordered: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
-      words: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
-      sentences: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
       free: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
       finger: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 }
     },
@@ -87,7 +86,7 @@ class StorageManager {
   async get(key) {
     await this._ensureDefaults();
     return new Promise((resolve, reject) => {
-      chrome.storage.sync.get(key, (result) => {
+      chrome.storage.local.get(key, (result) => {
         if (chrome.runtime.lastError) {
           reject(chrome.runtime.lastError);
         } else {
@@ -105,7 +104,7 @@ class StorageManager {
   async getAll(keys) {
     await this._ensureDefaults();
     return new Promise((resolve, reject) => {
-      chrome.storage.sync.get(keys, (result) => {
+      chrome.storage.local.get(keys, (result) => {
         if (chrome.runtime.lastError) {
           reject(chrome.runtime.lastError);
         } else {
@@ -124,7 +123,7 @@ class StorageManager {
   async set(key, value) {
     await this._ensureDefaults();
     return new Promise((resolve, reject) => {
-      chrome.storage.sync.set({ [key]: value }, () => {
+      chrome.storage.local.set({ [key]: value }, () => {
         if (chrome.runtime.lastError) {
           reject(chrome.runtime.lastError);
         } else {
@@ -154,7 +153,7 @@ class StorageManager {
   async remove(key) {
     await this._ensureDefaults();
     return new Promise((resolve, reject) => {
-      chrome.storage.sync.remove(key, () => {
+      chrome.storage.local.remove(key, () => {
         if (chrome.runtime.lastError) {
           reject(chrome.runtime.lastError);
         } else {
@@ -170,7 +169,7 @@ class StorageManager {
    */
   async clear() {
     return new Promise((resolve, reject) => {
-      chrome.storage.sync.clear(() => {
+      chrome.storage.local.clear(() => {
         if (chrome.runtime.lastError) {
           reject(chrome.runtime.lastError);
         } else {
@@ -196,7 +195,7 @@ class StorageManager {
    */
   async _getAll() {
     return new Promise((resolve, reject) => {
-      chrome.storage.sync.get(null, (result) => {
+      chrome.storage.local.get(null, (result) => {
         if (chrome.runtime.lastError) {
           reject(chrome.runtime.lastError);
         } else {
@@ -214,7 +213,7 @@ class StorageManager {
    */
   async _setAll(data) {
     return new Promise((resolve, reject) => {
-      chrome.storage.sync.set(data, () => {
+      chrome.storage.local.set(data, () => {
         if (chrome.runtime.lastError) {
           reject(chrome.runtime.lastError);
         } else {
