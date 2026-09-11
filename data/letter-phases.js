@@ -81,7 +81,7 @@ const LETTER_PHASES = [
     combine: 'same',
     batchSize: 10,
     describe: 'ASDF JKL; 基准键单键重复与左右互换',
-    require: { accuracy: 0.85, wpm: 12, minBatches: 3 }
+    require: { accuracy: 0.85, wpm: 12, minBatches: 1 }
   },
   {
     id: 1,
@@ -91,7 +91,7 @@ const LETTER_PHASES = [
     combine: 'adjacent',
     batchSize: 12,
     describe: '基准键 + 上排，同指上下相邻组合',
-    require: { accuracy: 0.85, wpm: 15, minBatches: 3 }
+    require: { accuracy: 0.85, wpm: 15, minBatches: 1 }
   },
   {
     id: 2,
@@ -101,7 +101,7 @@ const LETTER_PHASES = [
     combine: 'columns',
     batchSize: 14,
     describe: '加入下排，逐列单指往返练习',
-    require: { accuracy: 0.85, wpm: 18, minBatches: 3 }
+    require: { accuracy: 0.85, wpm: 18, minBatches: 1 }
   },
   {
     id: 3,
@@ -111,7 +111,7 @@ const LETTER_PHASES = [
     combine: 'cross',
     batchSize: 16,
     describe: '前两排全键，跨指相邻组合，左右手交替',
-    require: { accuracy: 0.85, wpm: 20, minBatches: 3 }
+    require: { accuracy: 0.85, wpm: 20, minBatches: 1 }
   },
   {
     id: 4,
@@ -121,7 +121,7 @@ const LETTER_PHASES = [
     combine: 'pairs',
     batchSize: 16,
     describe: '全字母，左右手指配对组合',
-    require: { accuracy: 0.85, wpm: 22, minBatches: 3 }
+    require: { accuracy: 0.85, wpm: 22, minBatches: 1 }
   },
   {
     id: 5,
@@ -131,7 +131,7 @@ const LETTER_PHASES = [
     combine: 'random',
     batchSize: 16,
     describe: '全字母乱序 + 数字行随机序列',
-    require: { accuracy: 0.88, wpm: 25, minBatches: 3 }
+    require: { accuracy: 0.88, wpm: 25, minBatches: 1 }
   },
   {
     id: 6,
@@ -141,7 +141,7 @@ const LETTER_PHASES = [
     combine: 'random',
     batchSize: 20,
     describe: '全字母 + 数字 + 符号，长随机序列',
-    require: { accuracy: 0.88, wpm: 30, minBatches: 3 }
+    require: { accuracy: 0.88, wpm: 30, minBatches: 1 }
   },
   {
     id: 7,
@@ -151,7 +151,7 @@ const LETTER_PHASES = [
     combine: 'random',
     batchSize: 24,
     describe: '全键位连续随机，自由组合',
-    require: { accuracy: 0.90, wpm: 35, minBatches: 3 }
+    require: { accuracy: 0.90, wpm: 35, minBatches: 1 }
   }
 ];
 

@@ -329,13 +329,36 @@ body {
 }
 
 /* ===== Achievements ===== */
-.popup__achievement-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  max-height: 200px;
-  overflow-y: auto;
-}
+  .popup__achievements-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .popup__achievement-reset {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.2s, transform 0.2s;
+    padding: 2px 6px;
+    line-height: 1;
+  }
+
+  .popup__achievement-reset:hover {
+    opacity: 1;
+    transform: rotate(180deg);
+  }
+
+  .popup__achievement-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
 
 .popup__achievement-item {
   display: flex;
@@ -372,6 +395,74 @@ body {
   font-size: 11px;
   color: var(--text-muted);
   font-weight: 400;
+}
+
+/* ===== Rules ===== */
+.popup__rules {
+  padding: 0 16px;
+}
+
+.popup__rules-lang {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.popup__rules-lang-btn {
+  flex: 1;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.popup__rules-lang-btn--active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px var(--shadow);
+}
+
+.popup__rules-section {
+  margin-bottom: 16px;
+}
+
+.popup__rules-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.popup__rules-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.popup__rules-list-item {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding: 3px 0;
+  padding-left: 14px;
+  position: relative;
+}
+
+.popup__rules-list-item::before {
+  content: "•";
+  position: absolute;
+  left: 4px;
+  color: var(--accent);
 }
 
 /* ===== Footer ===== */

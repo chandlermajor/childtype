@@ -82,7 +82,10 @@
 
   <!-- Achievements -->
   <section class="popup__section popup__achievements-main" id="achievements-main-section">
-    <h2 class="popup__section-title">成就 <span id="achievement-progress-main">0/48</span></h2>
+    <div class="popup__achievements-header">
+      <h2 class="popup__section-title">成就 <span id="achievement-progress-main">0/48</span></h2>
+      <button class="popup__achievement-reset" id="btn-reset-achievements" title="重置成就">↻</button>
+    </div>
     <div class="popup__achievement-grid" id="achievement-grid-main">
       <!-- Dynamically populated -->
     </div>
@@ -90,6 +93,7 @@
 
   <!-- Actions -->
   <section class="popup__section popup__actions">
+    <button class="popup__action-btn" id="btn-rules">📏 规则</button>
     <button class="popup__action-btn" id="btn-settings">⚙️ 设置</button>
     <button class="popup__action-btn popup__action-btn--link" id="btn-privacy">🔒 隐私政策</button>
   </section>
@@ -136,6 +140,17 @@
       <!-- Dynamically populated -->
     </div>
     <button class="popup__action-btn popup__action-btn--small" id="btn-close-achievements">关闭</button>
+  </section>
+
+  <!-- Rules Panel (hidden by default) -->
+  <section class="popup__section popup__rules" id="rules-panel" hidden>
+    <h2 class="popup__section-title" id="rules-title">规则</h2>
+    <div class="popup__rules-lang">
+      <button class="popup__rules-lang-btn popup__rules-lang-btn--active" data-lang="zh">中文</button>
+      <button class="popup__rules-lang-btn" data-lang="en">English</button>
+    </div>
+    <div class="popup__rules-content" id="rules-content"></div>
+    <button class="popup__action-btn popup__action-btn--small" id="btn-close-rules">关闭</button>
   </section>
 
   <script src="popup.js"></script>

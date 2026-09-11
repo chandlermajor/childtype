@@ -315,6 +315,11 @@ async function handleMessage(message, sender) {
       chrome.tabs.create({ url: chrome.runtime.getURL('privacy-policy.html') });
       return { success: true };
 
+    case 'resetAchievements': {
+      await store.set('achievements', { unlocked: [], locked: [] });
+      return { success: true };
+    }
+
     default:
       console.warn('[ChildType] Unknown action:', action);
       return { error: `Unknown action: ${action}` };

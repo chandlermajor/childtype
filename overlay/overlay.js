@@ -998,10 +998,22 @@ async function checkPhaseCompletion(accuracy, wpm) {
 
   if (passAccuracy && passWpm) {
     state.letterBatchPassCount++;
-    if (state.letterBatchPassCount >= (phase.require.minBatches || 3)) {
+    if (state.letterBatchPassCount >= (phase.require.minBatches || 1)) {
       await advancePhase();
     }
   } else {
+    // 未达标：自动回落至基准键阶段
+    if (state.letterPhase > 0) {
+      state.letterPhase = 0;
+      state.letterBatchPassCount = 0;
+      const home = letterPhases.getPhase(0);
+      state.letterPhaseName = home ? home.name : '基准键';
+      message = '未达标，回落到基准键阶段';
+      showNotification('⚠️', message);
+      updatePhaseLabel();
+      await refreshBatchForPhase();
+      return;
+    }
     state.letterBatchPassCount = 0;
   }
 }
