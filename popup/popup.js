@@ -354,6 +354,7 @@ settingDifficulty.addEventListener('change', () => {
           await loadAchievements();
           await loadProgress();
           await loadLevel();
+          console.log('[Popup] Achievements reset complete');
         }
       }
     });

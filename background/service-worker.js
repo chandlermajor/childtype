@@ -316,7 +316,10 @@ async function handleMessage(message, sender) {
       return { success: true };
 
     case 'resetAchievements': {
+      console.log('[ChildType] Reset achievements triggered');
       await store.set('achievements', { unlocked: [], locked: [] });
+      const afterReset = await store.get('achievements');
+      console.log('[ChildType] After reset:', afterReset);
       return { success: true };
     }
 
