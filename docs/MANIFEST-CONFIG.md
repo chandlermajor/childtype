@@ -12,7 +12,7 @@
   "name": "ChildType",
   "short_name": "ChildType",
   "version": "0.0.1",
-  "description": "Fun typing practice for kids 5-12. Practice keyboard finger placement and typing speed.",
+  "description": "Fun typing practice for kids 5-12. Practice keyboard finger placement and typing speed with 8 progressive phases.",
   "default_locale": "en",
   "icons": {
     "16": "icons/icon-16.png",
@@ -83,7 +83,7 @@
 
 | 字段 | 值 | 说明 |
 |------|------|------|
-| `description` | `"Fun typing practice for kids 5-12. Practice keyboard finger placement and typing speed."` | 扩展描述（最大 132 字符）。此描述会显示在商店和扩展管理页面 |
+| `description` | `"Fun typing practice for kids 5-12. Practice keyboard finger placement and typing speed with 8 progressive phases."` | 扩展描述（最大 132 字符）。此描述会显示在商店和扩展管理页面 |
 | `icons` | `{16: ..., 48: ..., 128: ...}` | 图标文件。必须包含 48px 和 128px。16px 是工具栏小图标 |
 
 ### 可选但推荐的字段
@@ -110,7 +110,7 @@
 
 | 权限 | 用途 | 必要性 | 审批风险 |
 |------|------|--------|----------|
-| `storage` | 读写 `chrome.storage.sync`，保存用户设置和进度 | 核心功能 | 低（常见权限） |
+| `storage` | 读写 `chrome.storage.local`，保存用户设置和进度 | 核心功能 | 低（常见权限） |
 | `activeTab` | 获取当前活跃 Tab 的 ID，用于注入 Content Script | 核心功能 | 低 |
 | `scripting` | 动态执行 `chrome.scripting.executeScript`，注入 overlay | 核心功能 | 低 |
 
@@ -130,6 +130,24 @@
 | `<all_urls>` | 使 Content Script 和 overlay 可在任意网页上工作 | 核心功能 |
 
 此权限在用户安装时会被提示。由于是「辅助工具」类扩展，此权限是合理且必要的。
+
+---
+
+## 存储后端说明
+
+**重要变更：** 本项目使用 `chrome.storage.local` 而非 `chrome.storage.sync`。
+
+| 存储方案 | 写入配额 | 同步 | 适用场景 |
+|----------|----------|------|----------|
+| `chrome.storage.sync` | ~100 次/分钟 | 跨设备 | 低频设置同步 |
+| `chrome.storage.local` | **无每分钟限制** | 仅本地 | **高频打字进度写入** |
+
+**选择 `local` 的原因：**
+- 字母练习模式中 `recordKey` 每次按键都会写入进度
+- 正常打字速度下每分钟写入远超 `sync` 的 ~100 次配额
+- 使用 `local` 彻底解决 `MAX_WRITE_OPERATIONS_PER_MINUTE` 错误
+- 数据量 < 100KB，远低于 5MB 容量限制
+- 儿童打字练习通常单设备使用，无需跨设备同步
 
 ---
 
@@ -210,4 +228,4 @@
 
 ---
 
-*文档版本: 1.0.0 | 最后更新: 2026-08-19*
+*文档版本: 2.0.0 | 最后更新: 2026-09-11*

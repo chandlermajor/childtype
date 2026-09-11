@@ -10,10 +10,10 @@
 
 | 类型 | 格式 | 示例 |
 |------|------|------|
-| JS 模块文件 | `PascalCase.js` | `StorageManager.js`, `TypingEngine.js` |
+| JS 模块文件 | `PascalCase.js` | `StorageManager.js`, `KeyboardView.js` |
 | HTML 文件 | `kebab-case.html` | `popup.html`, `overlay.html` |
 | CSS 文件 | `kebab-case.css` | `popup.css`, `overlay.css` |
-| 数据文件 | `kebab-case.js` | `words.js`, `levels.js` |
+| 数据文件 | `kebab-case.js` | `letter-phases.js`, `levels.js` |
 | 文档文件 | `UPPERCASE.md` | `README.md`, `ARCHITECTURE.md` |
 
 ### 1.2 JavaScript 命名
@@ -22,7 +22,7 @@
 |------|------|------|
 | 类名 | `PascalCase` | `class StorageManager {}` |
 | 实例变量 | `camelCase` | `this.currentLevel` |
-| 常量 | `UPPER_SNAKE_CASE` | `const MAX_LEVEL = 10` |
+| 常量 | `UPPER_SNAKE_CASE` | `const MAX_LEVEL = 25` |
 | 函数名 | `camelCase` | `function calculateWPM() {}` |
 | 私有方法/属性 | `_camelCase` | `this._startTime` |
 | 事件名 | `on + PascalCase` | `onSettingsChanged`, `onLevelUp` |
@@ -83,21 +83,18 @@ childtype/
 ├── overlay/                      # 打字覆盖层（UI 层）
 │   ├── overlay.html
 │   ├── overlay.css
-│   └── overlay.js
+│   └── overlay.js                # 内联 TypingEngine + StatsTracker
 ├── background/                   # 后台逻辑
 │   └── service-worker.js
 ├── modules/                      # 核心业务模块
 │   ├── KeyboardView.js
-│   ├── TypingEngine.js
-│   ├── StatsTracker.js
 │   ├── StorageManager.js
 │   ├── SettingsManager.js
 │   ├── AchievementSystem.js
 │   ├── LevelSystem.js
 │   └── SoundManager.js
 ├── data/                         # 静态数据
-│   ├── words.js
-│   ├── sentences.js
+│   ├── letter-phases.js          # 8阶段字母练习定义
 │   ├── levels.js
 │   ├── achievements.js
 │   └── keyboard-layouts.js
@@ -194,7 +191,7 @@ const items = [1, 2, 3,];
 
 ```javascript
 // 使用 const 优先，let 仅在需要重新赋值时使用
-const MAX_LEVEL = 10;      // 常量
+const MAX_LEVEL = 25;      // 常量
 const settings = getSettings(); // 不修改的引用
 let streak = 0;             // 需要修改的值
 let currentTarget = null;   // 状态变量
@@ -218,8 +215,8 @@ async function saveProgress(data) {
 
 // 避免嵌套回调
 // ❌
-chrome.storage.sync.get('settings', (result) => {
-  chrome.storage.sync.set({ progress: data }, () => {
+chrome.storage.local.get('settings', (result) => {
+  chrome.storage.local.set({ progress: data }, () => {
     // ...
   });
 });
@@ -369,30 +366,30 @@ main (稳定分支，仅用于发布)
 
 | 类型 | 说明 | 示例 |
 |------|------|------|
-| `feat` | 新功能 | `feat(overlay): add word typing mode` |
-| `fix` | Bug 修复 | `fix(engine): fix WPM calculation on first keystroke` |
+| `feat` | 新功能 | `feat(overlay): add 8-phase letter practice` |
+| `fix` | Bug 修复 | `fix(engine): fix batch settlement not triggering` |
 | `docs` | 文档更新 | `docs(README): add quick start guide` |
 | `style` | 代码格式（不影响功能） | `style(popup): fix indentation` |
-| `refactor` | 重构 | `refactor(storage): simplify get/set methods` |
+| `refactor` | 重构 | `refactor(storage): migrate to chrome.storage.local` |
 | `perf` | 性能优化 | `perf(keyboard): use CSS transform for animations` |
 | `test` | 测试相关 | `test(engine): add unit tests for WPM calc` |
 | `chore` | 构建/工具/杂项 | `chore(icon): update icon sizes` |
 
 **示例：**
 ```
-feat(engine): add sentence typing mode
+feat(engine): add 8-phase letter practice with auto-advancement
 
-- Support multi-word sentence input
-- Track cursor position per character
-- Show correct/wrong character highlighting
+- Implement batch settlement after each batch
+- Auto-advance phase on pass, fallback to home row on fail
+- Numbers and symbols introduced progressively across phases
 
-Closes #12
+Closes #42
 ```
 
 ### 6.3 禁止的行为
 
 - ❌ 不在 `main` 分支直接提交
-- ❌ 不提交包含 `console.log` 调试代码
+- ❌ 不提交包含 `console.log` 调试代码（除非标记 TODO）
 - ❌ 不提交未测试的代码
 - ❌ 不提交包含敏感信息（API keys、密码）
 - ❌ 不在提交信息中使用模糊描述（如 "fix", "update", "wip"）
@@ -416,7 +413,7 @@ Closes #12
 □ 所有功能已本地测试通过
 □ 无浏览器控制台错误
 □ 图标文件在 icons/ 目录
-□ 数据文件在 data/ 目录
+□ 数据文件在 data/ 目录（words.js/sentences.js 已移除）
 □ 文档已更新（如有 API 变更）
 □ 提交信息符合 Conventional Commits 格式
 □ 分支已同步 main
@@ -462,4 +459,4 @@ Closes #12
 
 ---
 
-*文档版本: 1.0.0 | 最后更新: 2026-08-19*
+*文档版本: 2.0.0 | 最后更新: 2026-09-11*

@@ -6,7 +6,7 @@
 
 ## ChildType 隐私政策
 
-**最后更新：2026 年 8 月 19 日**
+**最后更新：2026 年 9 月 11 日**
 **适用范围：ChildType Chrome 扩展**
 
 ---
@@ -21,10 +21,12 @@ ChildType 是一个完全本地运行的 Chrome 扩展。所有功能数据均�
 
 | 数据类型 | 存储位置 | 用途 | 是否上传 |
 |----------|----------|------|----------|
-| 打字练习设置（键盘布局、字体大小、主题、音效开关） | `chrome.storage.sync` | 保持用户偏好 | ❌ 否 |
-| 练习统计数据（WPM、准确率、练习时长） | `chrome.storage.sync` | 追踪进度 | ❌ 否 |
-| 等级和成就数据 | `chrome.storage.sync` | 游戏化激励 | ❌ 否 |
-| 每日练习记录 | `chrome.storage.sync` | 历史统计 | ❌ 否 |
+| 打字练习设置（键盘布局、字体大小、主题、音效开关） | `chrome.storage.local` | 保持用户偏好 | ❌ 否 |
+| 练习统计数据（WPM、准确率、练习时长） | `chrome.storage.local` | 追踪进度 | ❌ 否 |
+| 等级和成就数据 | `chrome.storage.local` | 游戏化激励 | ❌ 否 |
+| 每日练习记录 | `chrome.storage.local` | 历史统计 | ❌ 否 |
+| 字母练习阶段进度 | `chrome.storage.local` | 记录当前阶段 | ❌ 否 |
+| 手指熟练度统计 | `chrome.storage.local` | 指法分析 | ❌ 否 |
 
 **我们不会收集：**
 - ❌ 个人身份信息（姓名、邮箱、地址）
@@ -37,14 +39,14 @@ ChildType 是一个完全本地运行的 Chrome 扩展。所有功能数据均�
 
 ### 2. 数据存储
 
-所有数据存储在 Google Chrome 的 `chrome.storage.sync` API 中。
+所有数据存储在 Google Chrome 的 `chrome.storage.local` API 中。
 
 **技术说明：**
-- `chrome.storage.sync` 是 Google 提供的扩展存储 API
-- 数据与您的 Google 账号关联，可在已登录同一 Google 账号的多台设备间同步
-- 数据存储在 Google 的云端（与 Google 账号同步），但**仅限您自己的账号访问**
+- `chrome.storage.local` 是 Google 提供的扩展本地存储 API
+- 数据**仅存储在您的设备上**，不与 Google 账号同步
+- 数据存储在浏览器的本地加密存储中，**仅限您自己的浏览器访问**
 - Google 不会读取、分析或使用您的扩展数据
-- 离线时自动降级为 `chrome.storage.local`（仅本地存储）
+- 无需网络连接即可完整运行所有功能
 
 ---
 
@@ -55,6 +57,7 @@ ChildType 是一个完全本地运行的 Chrome 扩展。所有功能数据均�
 2. 追踪和展示您的打字进度
 3. 计算等级和成就
 4. 提供每日/每周练习统计
+5. 记录字母练习当前阶段，实现进阶/回落
 
 **绝不用于：**
 - 广告推送
@@ -72,7 +75,7 @@ ChildType 是一个完全本地运行的 Chrome 扩展。所有功能数据均�
 - 不向广告商分享
 - 不向数据分析公司分享
 - 不向其他扩展分享
-- Google 仅存储同步数据（与 Google Drive 相同的技术），不会用于其他目的
+- 数据完全留在您的本地浏览器中
 
 ---
 
@@ -89,17 +92,17 @@ ChildType 是一个完全本地运行的 Chrome 扩展。所有功能数据均�
 
 #### 数据删除
 - **清除所有数据：** 扩展设置 → 清除所有数据
-- **清除单个数据：** 扩展设置 → 重置设置
-- **卸载扩展：** 卸载会自动删除 `chrome.storage.sync` 中的数据
+- **清除单个数据：** 扩展设置 → 重置设置 / 重置成就
+- **卸载扩展：** 卸载会自动删除 `chrome.storage.local` 中的数据
 
 ---
 
 ### 6. 数据安全
 
-- 数据存储在浏览器的安全存储 API 中
-- 不加密（数据仅存储在本地，无需额外加密）
-- 不通过网络传输（除 Google 账号同步外）
+- 数据存储在浏览器的安全存储 API（`chrome.storage.local`）中
+- 数据仅存储在本地，不通过网络传输
 - 不存储在任何外部服务器
+- 无需加密（数据仅存储在本地，无传输风险）
 
 ---
 
@@ -113,6 +116,7 @@ ChildType 面向 5-12 岁儿童设计。
 - 不需要家长同意
 - 所有数据存储在本地浏览器中
 - 不涉及任何在线交互或社交功能
+- 无广告、无追踪、无第三方 SDK
 
 ---
 
@@ -131,8 +135,8 @@ ChildType 面向 5-12 岁儿童设计。
 | 开发者 | ChildType Team |
 | 邮箱 | support@childtype.example.com |
 | 政策页面 | [本页面] |
-| 最后更新 | 2026-08-19 |
+| 最后更新 | 2026-09-11 |
 
 ---
 
-*本隐私政策遵循 Chrome Web Store Developer Program Policies 和 GDPR 原则编写。*
+*本隐私政策遵循 Chrome Web Store Developer Program Policies 和 GDPR 原则编写。数据存储使用 chrome.storage.local（本地存储），而非 chrome.storage.sync（云同步），确保用户数据完全留在本地设备。*

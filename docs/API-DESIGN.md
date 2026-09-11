@@ -7,7 +7,8 @@
 ## 1. StorageManager — 存储管理
 
 **运行环境：** Service Worker
-**依赖：** `chrome.storage.sync` API
+**依赖：** `chrome.storage.local` API
+**存储后端：** `chrome.storage.local`（无每分钟写入配额限制）
 
 ### 构造与实例化
 
@@ -39,7 +40,6 @@ const store = StorageManager.getInstance();
     fontSize: 16,
     theme: 'light',
     soundEnabled: true,
-    difficulty: 'normal',
     defaultMode: 'letters'
   },
   progress: {
@@ -50,16 +50,24 @@ const store = StorageManager.getInstance();
     totalKeystrokes: 0,
     modeStats: {
       letters: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
-      words: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
-      sentences: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
+      ordered: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
       free: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 },
       finger: { sessions: 0, bestWPM: 0, accuracy: 0, totalMinutes: 0 }
     },
-    dailyHistory: []  // [{ date: 'YYYY-MM-DD', minutes: 15, avgWPM: 35, accuracy: 92 }]
+    modesPlayed: [],
+    lastPracticeDate: null,
+    consecutiveDays: 0,
+    dailyHistory: [],  // [{ date: 'YYYY-MM-DD', minutes: 15, avgWPM: 35, accuracy: 92 }]
+    fingerPhase: 0,
+    liveStats: {},
+    fingerStats: { ... },
+    keyProficiency: { ... },
+    letterPhase: 0,
+    letterPhaseName: '基准键'
   },
   achievements: {
-    unlocked: [],  // [{ id: 'streak_10', unlockedAt: '2026-08-16T14:20:00Z' }]
-    locked: []     // ['streak_50', 'wpm_60']
+    unlocked: [],  // [{ id: 'streak_10', unlockedAt: '2026-09-01T14:20:00Z' }]
+    locked: []     // ['streak_50', 'wpm_60', 'level_10', 'phase_4']
   }
 }
 ```
@@ -78,6 +86,7 @@ const store = StorageManager.getInstance();
 
 **运行环境：** Service Worker
 **依赖：** `StorageManager`
+**注意：** 已移除 difficulty 设置，难度由阶段系统内部自动管理
 
 ### 公共方法
 
@@ -89,7 +98,7 @@ const store = StorageManager.getInstance();
 | `updateSettings(partial)` | `Partial<Object>` | `Promise<void>` | 批量更新多个设置 |
 | `resetToDefaults()` | — | `Promise<void>` | 恢复所有设置为默认值 |
 | `getValidLayouts()` | — | `Array<string>` | 获取支持的键盘布局列表 |
-| `getThemeOptions()` | — | `Array<{value, label}>` | 获取主题选项 |
+| `getThemeOptions()` | — | `Array<{value, label}>` | 获取主题选项（light/dark/eye） |
 | `getFontSizes()` | — | `Array<number>` | 获取可用字体大小列表 |
 
 ### 设置项校验
@@ -99,10 +108,9 @@ const store = StorageManager.getInstance();
 const validators = {
   keyboardLayout: v => ['QWERTY', 'AZERTY'].includes(v),
   fontSize: v => Number.isInteger(v) && v >= 12 && v <= 48,
-  theme: v => ['light', 'dark'].includes(v),
+  theme: v => ['light', 'dark', 'eye'].includes(v),
   soundEnabled: v => typeof v === 'boolean',
-  difficulty: v => ['easy', 'normal', 'hard'].includes(v),
-  defaultMode: v => ['letters', 'words', 'sentences', 'free', 'finger'].includes(v)
+  defaultMode: v => ['letters', 'ordered', 'free', 'finger'].includes(v)
 };
 ```
 
@@ -127,7 +135,7 @@ const keyboard = new KeyboardView(containerElement);
 | `highlightKey(keyChar, state)` | `string`, `string` | `void` | 高亮指定键，state: 'target' \| 'active' \| 'correct' \| 'wrong' |
 | `clearHighlight()` | — | `void` | 清除所有高亮 |
 | `setFingerMode(fingerId)` | `string` | `void` | 设置指法专项模式，只显示该手指对应的键 |
-| `setTheme(theme)` | `string` | `void` | 切换主题（light/dark） |
+| `setTheme(theme)` | `string` | `void` | 切换主题（light/dark/eye） |
 | `setFontSize(size)` | `number` | `void` | 调整键盘字体大小 |
 | `show()` | — | `void` | 显示键盘 |
 | `hide()` | — | `void` | 隐藏键盘 |
@@ -162,89 +170,95 @@ const layouts = {
       // 右无名指: 9 O L
       // 右小指: 0 P ; ' \ /
     }
-  }
+  },
+  AZERTY: { ... }
 };
 ```
 
 ---
 
-## 4. TypingEngine — 打字判定引擎
+## 4. TypingEngine — 打字判定引擎（内联于 overlay/overlay.js）
 
 **运行环境：** Content Script (Overlay)
 **依赖：** `KeyboardView` (获取键位信息), `StatsTracker` (收集统计), `SoundManager` (播放音效)
+**模式：** `letters` | `ordered` | `free` | `finger`
 
-### 构造
-
-```javascript
-const engine = new TypingEngine({
-  mode: 'letters',        // 'letters' | 'words' | 'sentences' | 'free' | 'finger'
-  difficulty: 'normal',
-  fingerId: null,         // 指法专项模式时指定手指 ID
-  data: {                 // 模式数据（单词库/句子库）
-    words: wordList,
-    sentences: sentenceList
-  }
-});
-```
-
-### 公共方法
-
-| 方法 | 参数 | 返回 | 说明 |
-|------|------|------|------|
-| `start()` | — | `void` | 开始打字会话，重置计时器和统计 |
-| `stop()` | — | `void` | 停止会话，返回会话统计 |
-| `pause()` | — | `void` | 暂停会话 |
-| `resume()` | — | `void` | 恢复会话 |
-| `submitKey(key, code)` | `string`, `string` | `Object` | 提交按键，返回判定结果 |
-| `resetCurrentTarget()` | — | `void` | 重置当前目标（跳过当前键/词/句） |
-| `switchMode(mode, data)` | `string`, `Object` | `void` | 切换到新模式 |
-| `setDifficulty(difficulty)` | `string` | `void` | 设置难度，影响数据选择策略 |
-
-### submitKey 返回值
+### 核心状态
 
 ```javascript
+// 内部状态（overlay.js 中的 state 对象）
 {
-  correct: true/false,       // 按键是否正确
-  expected: 'a',              // 期望的按键
-  actual: 's',                // 用户按下的按键
-  target: 'b',                // 下一个目标键/字母
-  wpm: 35,                    // 当前 WPM
-  accuracy: 94.5,             // 当前准确率 (%)
-  streak: 12,                 // 当前连击数
-  totalKeystrokes: 250,       // 总按键数
-  correctKeystrokes: 236,     // 正确按键数
-  elapsedSeconds: 45,         // 已用时间
-  sessionActive: true         // 会话是否活跃
+  active: false,
+  mode: 'letters',        // 'letters' | 'ordered' | 'free' | 'finger'
+  letterPhase: 0,         // 0-7，当前阶段
+  letterPhaseName: '',    // 阶段名称
+  letterBatchPassCount: 0,// 连续通过批次计数
+  target: null,           // 当前目标字符/批次
+  batchTarget: [],        // 当前批次字母数组
+  batchIndex: 0,          // 批次内当前索引
+  startTime: null,        // 会话开始时间
+  paused: false,
+  pauseTime: 0,
+  lastKeyTime: null,
+  totalKeystrokes: 0,
+  correctKeystrokes: 0,
+  batchTotalKeystrokes: 0,
+  batchCorrectKeystrokes: 0,
+  batchStartTime: null,
+  streak: 0,
+  maxStreak: 0,
+  errors: 0,
+  timerInterval: null,
+  sessionStats: null
 }
 ```
 
-### 内部状态
+### 关键内部函数
+
+| 函数 | 说明 |
+|------|------|
+| `startSession(mode)` | 开始练习会话，重置状态，生成首批次 |
+| `stopOverlay()` | 停止 overlay，保存会话数据到 SW |
+| `setNextTarget()` | 获取下一个目标（字母模式调用 getBatchLetters） |
+| `getBatchLetters()` | **每批次必结算**：计算上批次准确率/WPM，调用 checkPhaseCompletion |
+| `checkPhaseCompletion(accuracy, wpm)` | 判定达标：达标→升阶，不达标→回落基准键 |
+| `advancePhase()` | 升入下一阶段（0-7），更新 phaseName，触发通知 |
+| `refreshBatchForPhase()` | 为当前阶段生成新批次 |
+| `processKey(pressedKey, code)` | 处理按键判定，更新统计，推进批次索引 |
+| `updateTargetDisplay()` | 更新目标显示区域 |
+| `highlightNextKey()` | 高亮虚拟键盘上下一个目标键 |
+
+### 阶段进阶逻辑
 
 ```javascript
-// TypingEngine 内部状态
-{
-  mode: 'letters',
-  difficulty: 'normal',
-  isActive: false,
-  isPaused: false,
-  startTime: null,       // Date.now()
-  pausedTime: 0,         // 累计暂停时间
-  lastKeyTime: null,     // 最后一次按键时间
-  totalKeystrokes: 0,
-  correctKeystrokes: 0,
-  streak: 0,             // 当前连续正确
-  maxStreak: 0,          // 历史最大连续正确
-  currentTarget: null,   // 当前目标（字母/单词/句子）
-  currentIndex: 0,       // 当前在目标中的位置
-  data: [],              // 当前练习数据源
-  dataIndex: 0,          // 数据源中的当前位置
-  stats: { wpm: 0, accuracy: 0 }
+// checkPhaseCompletion 伪代码
+async function checkPhaseCompletion(accuracy, wpm) {
+  const phase = LETTER_PHASES[state.letterPhase];
+  const passAccuracy = accuracy >= phase.require.accuracy * 100;
+  const passWpm = wpm >= phase.require.wpm;
+
+  if (passAccuracy && passWpm) {
+    state.letterBatchPassCount++;
+    if (state.letterBatchPassCount >= phase.require.minBatches) {
+      await advancePhase(); // 升阶
+    }
+  } else {
+    if (state.letterPhase > 0) {
+      // 回落基准键
+      state.letterPhase = 0;
+      state.letterPhaseName = '基准键';
+      state.letterBatchPassCount = 0;
+      showNotification('⚠️', '未达标，回落到基准键阶段');
+      await refreshBatchForPhase();
+    }
+    state.letterBatchPassCount = 0;
+  }
 }
 ```
 
 ---
 
-## 5. StatsTracker — 统计追踪
+## 5. StatsTracker — 统计追踪（内联于 overlay/overlay.js）
 
 **运行环境：** Content Script (Overlay)
 **依赖：** `StorageManager`（最终持久化）
@@ -253,13 +267,9 @@ const engine = new TypingEngine({
 
 | 方法 | 参数 | 返回 | 说明 |
 |------|------|------|------|
-| `startSession(mode)` | `string` | `void` | 开始新的统计会话 |
-| `update(stats)` | `Object` | `void` | 更新统计（来自 TypingEngine） |
+| `update(stats)` | `Object` | `void` | 更新实时统计（来自 TypingEngine） |
 | `getLiveStats()` | — | `Object` | 获取当前实时统计 |
 | `endSession()` | — | `Object` | 结束会话，返回完整统计，触发持久化 |
-| `getHistory(mode)` | `string` | `Array` | 获取指定模式的练习历史 |
-| `getDailySummary(date)` | `string` | `Object` | 获取指定日期的汇总 |
-| `getWeeklySummary(startDate)` | `string` | `Object` | 获取指定周起始日的汇总 |
 
 ### 统计数据结构
 
@@ -284,7 +294,7 @@ const engine = new TypingEngine({
   avgWPM: 32.1,
   bestWPM: 48.5,
   mode: 'letters',
-  date: '2026-08-19',
+  date: '2026-09-11',
   dailyEntry: { ... }       // 可直接写入 dailyHistory 的条目
 }
 ```
@@ -329,6 +339,16 @@ const achievements = [
     experienceReward: 25
   },
   {
+    id: 'phase_4',
+    name: '入门数字',
+    nameEn: 'Number Starter',
+    description: '完成阶段 4：双指配对·入门数字',
+    descriptionEn: 'Complete Phase 4: Two-Hand Pairs · Intro Numbers',
+    icon: '🔢',
+    condition: { type: 'letterPhase', threshold: 4 },
+    experienceReward: 100
+  },
+  {
     id: 'wpm_30',
     name: '速度入门',
     nameEn: 'Speed Starter',
@@ -338,7 +358,7 @@ const achievements = [
     condition: { type: 'bestWPM', threshold: 30 },
     experienceReward: 50
   }
-  // ... 20+ 成就
+  // ... 共 48 个成就
 ];
 ```
 
@@ -365,6 +385,7 @@ const achievements = [
 
 **运行环境：** Service Worker
 **依赖：** `StorageManager`, `AchievementSystem`
+**注意：** `getDifficultyModifier()` 仍保留供经验计算，但难度由阶段自动映射
 
 ### 等级定义格式
 
@@ -374,13 +395,8 @@ const levels = [
   { level: 1, name: '打字新手', nameEn: 'Typing Beginner', expRequired: 0, icon: '🌱' },
   { level: 2, name: '字母达人', nameEn: 'Letter Master', expRequired: 100, icon: '📝' },
   { level: 3, name: '打字学徒', nameEn: 'Typing Apprentice', expRequired: 250, icon: '✏️' },
-  { level: 4, name: '单词达人', nameEn: 'Word Master', expRequired: 500, icon: '📖' },
-  { level: 5, name: '句子达人', nameEn: 'Sentence Master', expRequired: 800, icon: '📋' },
-  { level: 6, name: '速度达人', nameEn: 'Speed Master', expRequired: 1200, icon: '⚡' },
-  { level: 7, name: '打字高手', nameEn: 'Typing Expert', expRequired: 1800, icon: '🏆' },
-  { level: 8, name: '键盘大师', nameEn: 'Keyboard Master', expRequired: 2500, icon: '👑' },
-  { level: 9, name: '打字传奇', nameEn: 'Typing Legend', expRequired: 3500, icon: '🌟' },
-  { level: 10, name: '打字之神', nameEn: 'Typing God', expRequired: 5000, icon: '🏅' }
+  // ... 共 25 级
+  { level: 25, name: '打字之神', nameEn: 'Typing God', expRequired: 50000, icon: '🏅' }
 ];
 ```
 
@@ -393,7 +409,7 @@ const levels = [
 | `addExperience(exp)` | `number` | `Object` | 增加经验值，可能触发升级，返回升级信息 |
 | `getLevelProgress()` | — | `Object` | 获取当前等级进度（当前经验/升级所需经验） |
 | `getNextLevel()` | — | `Object` | 获取下一等级信息 |
-| `getDifficultyModifier(difficulty)` | `string` | `number` | 获取难度系数（easy: 0.8, normal: 1.0, hard: 1.5） |
+| `getDifficultyModifier(difficulty)` | `string` | `number` | 获取难度系数（内部使用，由阶段映射） |
 | `getLevelName(level)` | `number` | `string` | 获取等级名称 |
 
 ### 事件
@@ -484,4 +500,4 @@ sequenceDiagram
 
 ---
 
-*文档版本: 1.0.0 | 最后更新: 2026-08-19*
+*文档版本: 2.0.0 | 最后更新: 2026-09-11*

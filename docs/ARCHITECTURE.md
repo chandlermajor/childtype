@@ -52,7 +52,7 @@ graph TB
 |------|------|
 | 职责 | 全局状态管理、消息路由、存储读写、后台任务 |
 | 生命周期 | 由 Chrome 自动管理（事件驱动，空闲时可能被休眠） |
-| 持久化 | 使用 `chrome.storage.sync` 保存用户数据 |
+| 持久化 | 使用 `chrome.storage.local` 保存用户数据（高频写入避免 sync 配额） |
 | 权限 | `storage`, `activeTab`, `scripting` |
 
 **关键职责：**
@@ -77,7 +77,7 @@ graph TB
 │  [ChildType Logo]       │
 ├─────────────────────────┤
 │  模式选择               │
-│  [字母][单词][句子][自由] │
+│  [字母][顺序][自由][指法] │
 ├─────────────────────────┤
 │  快速统计               │
 │  WPM: 35  准确率: 92%   │
@@ -101,7 +101,8 @@ graph TB
 **Overlay 结构：**
 ```
 ┌──────────────────────────────────┐
-│  模式: 字母练习     WPM: 35  ✅92%│
+│  模式: 字母练习     WPM: 35  ✅92% │
+│  阶段: 3/8 · 单指列               │
 ├──────────────────────────────────┤
 │                                  │
 │        按  下  面  的  键          │
@@ -118,7 +119,7 @@ graph TB
 │  │Z ││X ││C ││V ││B ││N │ ...   │
 │  └──┘└──┘└──┘└──┘└──┘└──┘      │
 │                                  │
-│  [暂停] [切换模式] [关闭]        │
+│  [暂停] [关闭]                    │
 └──────────────────────────────────┘
 ```
 
@@ -131,12 +132,12 @@ graph TB
 | 模块 | 文件 | 职责 | 运行环境 |
 |------|------|------|----------|
 | `KeyboardView` | `modules/KeyboardView.js` | 渲染虚拟键盘，处理按键视觉反馈 | Content Script |
-| `TypingEngine` | `modules/TypingEngine.js` | 打字判定、计时、WPM/准确率计算 | Content Script |
-| `StatsTracker` | `modules/StatsTracker.js` | 收集练习统计数据，生成报告 | Content Script |
-| `StorageManager` | `modules/StorageManager.js` | 封装 `chrome.storage.sync` 读写 | Service Worker |
-| `SettingsManager` | `modules/SettingsManager.js` | 管理用户偏好设置 | Service Worker |
+| `TypingEngine` | `overlay/overlay.js` (内联) | 打字判定、计时、WPM/准确率计算、8阶段进阶逻辑 | Content Script |
+| `StatsTracker` | `overlay/overlay.js` (内联) | 收集练习统计数据，生成报告 | Content Script |
+| `StorageManager` | `modules/StorageManager.js` | 封装 `chrome.storage.local` 读写 | Service Worker |
+| `SettingsManager` | `modules/SettingsManager.js` | 管理用户偏好设置（布局、字体、主题、音效） | Service Worker |
 | `AchievementSystem` | `modules/AchievementSystem.js` | 成就定义、解锁判定、徽章展示 | Service Worker |
-| `LevelSystem` | `modules/LevelSystem.js` | 等级定义、升级条件、难度调节 | Service Worker |
+| `LevelSystem` | `modules/LevelSystem.js` | 等级定义、升级条件、经验计算 | Service Worker |
 | `SoundManager` | `modules/SoundManager.js` | Web Audio API 合成打字音效 | Content Script |
 
 ### 3.2 模块依赖关系
@@ -167,7 +168,7 @@ graph LR
 - `TypingEngine` 是核心引擎，依赖 `KeyboardView`（获取键位信息）、`StatsTracker`（收集统计）、`SoundManager`（播放音效）
 - `StatsTracker` 依赖 `StorageManager` 保存统计数据
 - `StorageManager` 是所有持久化数据的入口，`AchievementSystem` 和 `LevelSystem` 都依赖它
-- `SettingsManager` 管理用户偏好，`LevelSystem` 根据设置动态调节难度
+- `SettingsManager` 管理用户偏好，`LevelSystem` 根据经验计算等级
 - `SoundManager` 依赖 `SettingsManager` 判断是否开启音效
 
 ---
@@ -198,7 +199,31 @@ sequenceDiagram
     ST-->>Overlay: 更新 UI 统计显示
 ```
 
-### 4.2 消息路由
+### 4.2 批次结算与阶段进阶流
+
+```mermaid
+sequenceDiagram
+    participant TE as TypingEngine
+    participant ST as StatsTracker
+    participant SW as Service Worker
+    participant SM as StorageManager
+
+    TE->>TE: 完成一批次 (10-24键)
+    TE->>TE: 计算批次准确率 + WPM
+    TE->>TE: checkPhaseCompletion(acc, wpm)
+    alt 达标
+        TE->>TE: letterBatchPassCount++
+        TE->>TE: advancePhase() 升阶
+        TE->>TE: refreshBatchForPhase() 生成新批次
+        TE->>SW: 广播阶段变更通知
+        SW->>SM: 保存 letterPhase/letterPhaseName
+    else 不达标
+        TE->>TE: 回落基准键
+        TE->>TE: refreshBatchForPhase()
+    end
+```
+
+### 4.3 消息路由
 
 ```mermaid
 flowchart TD
@@ -211,10 +236,10 @@ flowchart TD
     B -->|getAchievements| F[AchievementSystem]
     B -->|resetProgress| E
 
-    C -->|typingUpdate| G[StatsTracker 更新]
+    C -->|recordKey| G[StatsTracker 更新]
     C -->|sessionEnd| H[保存会话数据]
-    C -->|startSession| I[TypingEngine 启动]
-    C -->|stopSession| J[TypingEngine 停止]
+    C -->|START_SESSION| I[TypingEngine 启动]
+    C -->|STOP_SESSION| J[TypingEngine 停止]
 
     D --> B
     E --> B
@@ -230,11 +255,12 @@ flowchart TD
 | Popup → SW | `getProgress` | `{}` | `{progress}` |
 | Popup → SW | `getAchievements` | `{}` | `{achievements}` |
 | Popup → SW | `resetProgress` | `{}` | `{success}` |
-| SW → CS | `startOverlay` | `{mode, difficulty}` | `{started}` |
-| SW → CS | `stopOverlay` | `{}` | `{stopped}` |
-| CS → SW | `typingUpdate` | `{wpm, accuracy, streak}` | `{ack}` |
-| CS → SW | `sessionEnd` | `{duration, totalKeystrokes, errors}` | `{saved}` |
+| SW → CS | `START_SESSION` | `{mode}` | `{started}` |
+| SW → CS | `STOP_SESSION` | `{}` | `{stopped}` |
+| CS → SW | `recordKey` | `{key, finger, correct, responseMs}` | `{success}` |
+| CS → SW | `sessionEnd` | `{duration, totalKeystrokes, errors, mode, streak, maxStreak}` | `{saved}` |
 | CS → SW | `levelUp` | `{newLevel}` | `{ack}` |
+| CS → SW | `lettersBatchStarted` | `{batchAccuracy, batchWpm, ...}` | `{ack}` |
 
 ---
 
@@ -242,7 +268,7 @@ flowchart TD
 
 ### 5.1 Storage Keys
 
-使用 `chrome.storage.sync` 进行数据持久化，所有数据在根目录按主题 key 组织：
+使用 `chrome.storage.local` 进行数据持久化（避免 `chrome.storage.sync` 的每分钟写入配额限制），所有数据在根目录按主题 key 组织：
 
 ```json
 {
@@ -251,7 +277,6 @@ flowchart TD
     "fontSize": 16,
     "theme": "light",
     "soundEnabled": true,
-    "difficulty": "normal",
     "defaultMode": "letters"
   },
   "progress": {
@@ -261,20 +286,30 @@ flowchart TD
     "bestWPM": 55,
     "totalKeystrokes": 15000,
     "modeStats": {
-      "letters": { "sessions": 10, "bestWPM": 45, "accuracy": 94 },
-      "words": { "sessions": 5, "bestWPM": 38, "accuracy": 91 },
-      "sentences": { "sessions": 3, "bestWPM": 30, "accuracy": 88 }
+      "letters": { "sessions": 10, "bestWPM": 45, "accuracy": 94, "totalMinutes": 0 },
+      "ordered": { "sessions": 5, "bestWPM": 40, "accuracy": 96, "totalMinutes": 0 },
+      "free": { "sessions": 3, "bestWPM": 30, "accuracy": 90, "totalMinutes": 0 },
+      "finger": { "sessions": 2, "bestWPM": 25, "accuracy": 88, "totalMinutes": 0 }
     },
+    "modesPlayed": ["letters", "ordered"],
+    "lastPracticeDate": "2026-09-10",
+    "consecutiveDays": 3,
     "dailyHistory": [
-      { "date": "2026-08-18", "minutes": 15, "avgWPM": 35, "accuracy": 92 }
-    ]
+      { "date": "2026-09-10", "minutes": 15, "avgWPM": 35, "accuracy": 92 }
+    ],
+    "fingerPhase": 0,
+    "liveStats": {},
+    "fingerStats": { ... },
+    "keyProficiency": { ... },
+    "letterPhase": 2,
+    "letterPhaseName": "单指列"
   },
   "achievements": {
     "unlocked": [
-      { "id": "first_key", "unlockedAt": "2026-08-15T10:30:00Z" },
-      { "id": "streak_10", "unlockedAt": "2026-08-16T14:20:00Z" }
+      { "id": "first_key", "unlockedAt": "2026-09-01T10:30:00Z" },
+      { "id": "streak_10", "unlockedAt": "2026-09-02T14:20:00Z" }
     ],
-    "locked": ["streak_50", "wpm_60", "level_10"]
+    "locked": ["streak_50", "wpm_60", "level_10", "phase_4"]
   }
 }
 ```
@@ -295,11 +330,36 @@ await store.clear();            // 清除所有数据
 
 ---
 
-## 6. 主题与样式系统
+## 6. 字母练习 8 阶段系统
 
-### 6.1 CSS 变量设计
+### 6.1 阶段定义
 
-使用 CSS Custom Properties 实现亮/暗主题切换：
+| 阶段 | 名称 | 键位范围 | 组合规则 | 批次大小 | 准确率要求 | WPM 要求 |
+|------|------|---------|---------|---------|-----------|---------|
+| 0 | 基准键 | asdfjk; | same | 10 | 85% | 12 |
+| 1 | 同指相邻 | asdfjk;qwertyuiop | adjacent | 12 | 85% | 14 |
+| 2 | 单指列 | asdfjk;qwertyuiopzxcvbnm | columns | 14 | 85% | 16 |
+| 3 | 跨指相邻 | asdfjk;qwertyuiopzxcvbnm | cross | 16 | 85% | 18 |
+| 4 | 双指配对·入门数字 | abcdefghijklmnopqrstuvwxyz1234 | pairs | 16 | 85% | 20 |
+| 5 | 随机字母·进阶数字 | abcdefghijklmnopqrstuvwxyz1234567890 | random | 16 | 85% | 22 |
+| 6 | 字母数字·常用符号 | abcdefghijklmnopqrstuvwxyz1234567890-=[]\;:' | random | 20 | 88% | 25 |
+| 7 | 全键盘 | abcdefghijklmnopqrstuvwxyz1234567890-=[]\;:'.,/\` | random | 24 | 88% | 28 |
+
+### 6.2 进阶规则
+
+- **每批次必结算**：完成一批次后立即计算准确率和 WPM
+- **达标条件**：准确率 ≥ 阈值（前6阶段 85%，后2阶段 88%）AND WPM ≥ 阶段阈值
+- **达标结果**：`letterBatchPassCount++`，达标一次即升入下一阶段（minBatches=1）
+- **不达标结果**：若当前阶段 > 0，直接回落到 Phase 0（基准键），清零通过计数
+- **满级**：Phase 7 完成后提示「所有阶段已完成」
+
+---
+
+## 7. 主题与样式系统
+
+### 7.1 CSS 变量设计
+
+使用 CSS Custom Properties 实现亮/暗/护眼主题切换：
 
 ```css
 /* 亮色主题（默认） */
@@ -333,9 +393,18 @@ await store.clear();            // 清除所有数据
   --text-secondary: #A0A0A0;
   /* ... 其他变量相应调整 */
 }
+
+/* 护眼主题 */
+:root[data-theme="eye"] {
+  --bg-primary: #E8F5E9;
+  --bg-secondary: #C8E6C9;
+  --text-primary: #2E7D32;
+  --text-secondary: #4CAF50;
+  /* ... 其他变量相应调整 */
+}
 ```
 
-### 6.2 主题切换机制
+### 7.2 主题切换机制
 
 ```
 SettingsManager.getSetting('theme')
@@ -347,7 +416,7 @@ SettingsManager.getSetting('theme')
 
 ---
 
-## 7. 扩展生命周期
+## 8. 扩展生命周期
 
 ```mermaid
 stateDiagram-v2
@@ -370,9 +439,9 @@ stateDiagram-v2
 
 ---
 
-## 8. 安全与权限
+## 9. 安全与权限
 
-### 8.1 权限清单
+### 9.1 权限清单
 
 | 权限 | 用途 | 必要性 |
 |------|------|--------|
@@ -381,7 +450,7 @@ stateDiagram-v2
 | `scripting` | 动态注入 content script | 核心功能 |
 | `<all_urls>` (host) | 使 overlay 可在任意网页上工作 | 核心功能 |
 
-### 8.2 Content Security Policy
+### 9.2 Content Security Policy
 
 ```
 default-src 'self';
@@ -398,4 +467,4 @@ font-src 'self';
 
 ---
 
-*文档版本: 1.0.0 | 最后更新: 2026-08-19*
+*文档版本: 2.0.0 | 最后更新: 2026-09-11*
